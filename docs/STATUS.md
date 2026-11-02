@@ -248,8 +248,3 @@ allocations) в triton UMD (`tritonResource.c` ~548 — написан под Me
   Потребитель (dwm) импортирует их через VK_EXT_image_drm_format_modifier с явным rowPitch
   (resource.c ~1222). Гипотеза: Turnip A8xx не соблюдает явный rowPitch при импорте.
   Патч virtio-d3d11 0001: лог «import layout MISMATCH» (явный vs фактический rowPitch).
-- Найдено расхождение pitch: KMD для GDI shadow/staging сообщает Pitch = w*4 и в local
-  present copy берёт w*4 (device.rs `None => (*width * 4, 0)`), а triton OpenResource для
-  TYPE_3D читает с align(w*4, 256) (Metal-хост, tritonResource.c ~571); Turnip не импортирует
-  linear с pitch не кратным 64. Патч KMD 0002: `droidvm_pitch(w) = align(w*4, 256)` для
-  shadow/staging Pitch+size, local copy и fallback layout. Основной экран (1920*4) не меняется.
