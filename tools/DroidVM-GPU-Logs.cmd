@@ -60,6 +60,9 @@ Get-WinEvent -FilterHashtable @{LogName='System','Application'; Level=1,2,3; Sta
 $L.Add("--- DXVK logs (newest) ---")
 Get-ChildItem 'C:\ProgramData\DroidVM-GPU\dxvk' -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 3 | ForEach-Object {
   $L.Add("## $($_.Name) $($_.LastWriteTime) $($_.Length) bytes"); Get-Content $_.FullName -Tail 120 | ForEach-Object { $L.Add($_) } }
+$L.Add("--- umd.log: unique error-like lines ---")
+$u = 'C:\ProgramData\DroidVM-GPU\dxvk\umd.log'
+if (Test-Path $u) { Get-Content $u | ForEach-Object { $_ -replace '^\[umd pid=\d+ tid=\d+\] ', '' } | Where-Object { $_ -match 'err|fail|tu_|turnip|MESA|vk|device|physical|VK_' } | Select-Object -Unique -First 150 | ForEach-Object { $L.Add($_) } }
 $L.Add("--- dwm crash dumps ---")
 $dmp = Get-ChildItem 'C:\ProgramData\DroidVM-GPU\dumps' -Filter *.dmp -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending
 $dmp | Select-Object -First 5 | ForEach-Object { $L.Add("$($_.Name) $($_.Length)") }
@@ -88,6 +91,7 @@ if ($upTok -notlike '__UPLOAD*') {
   } catch { Add-Content -Encoding UTF8 $out "upload: FAILED $_" }
 }
 # reset diagnostics for the next boot (key must exist for the driver)
+Get-ChildItem 'C:\ProgramData\DroidVM-GPU\dxvk' -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
 Remove-Item $key -Force -ErrorAction SilentlyContinue
 New-Item $key -Force | Out-Null
 '@
@@ -121,6 +125,9 @@ Register-ScheduledTask -TaskName 'DroidVM GPU logs' -Action $act -Trigger $trg -
 foreach ($sub in 'dxvk','dumps') { $p = "C:\ProgramData\DroidVM-GPU\$sub"; New-Item $p -ItemType Directory -Force | Out-Null; icacls $p /grant '*S-1-1-0:(OI)(CI)M' | Out-Null }
 [Environment]::SetEnvironmentVariable('DXVK_LOG_LEVEL', 'info', 'Machine')
 [Environment]::SetEnvironmentVariable('VIRTIO_WDDM_LOG_FILE', 'C:\ProgramData\DroidVM-GPU\dxvk\umd.log', 'Machine')
+[Environment]::SetEnvironmentVariable('MESA_LOG_FILE', 'C:\ProgramData\DroidVM-GPU\dxvk\mesa.log', 'Machine')
+[Environment]::SetEnvironmentVariable('TU_DEBUG', 'startup', 'Machine')
+[Environment]::SetEnvironmentVariable('MESA_DEBUG', '1', 'Machine')
 [Environment]::SetEnvironmentVariable('DXVK_LOG_PATH', 'C:\ProgramData\DroidVM-GPU\dxvk', 'Machine')
 $wer = 'HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\dwm.exe'
 New-Item $wer -Force | Out-Null
