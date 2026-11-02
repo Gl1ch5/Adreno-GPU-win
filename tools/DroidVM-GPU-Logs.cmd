@@ -71,9 +71,10 @@ $m = 'C:\ProgramData\DroidVM-GPU\dxvk\mesa.log'
 if (Test-Path $m) { Get-Content $m -TotalCount 200 | ForEach-Object { $L.Add($_) } } else { $L.Add('(no mesa.log)') }
 $L.Add("--- umd.log: unique error-like lines ---")
 $u = 'C:\ProgramData\DroidVM-GPU\dxvk\umd.log'
-if (Test-Path $u) { $seen = New-Object 'System.Collections.Generic.HashSet[string]'; $n = 0
-  foreach ($ln in [IO.File]::ReadLines($u)) { $t = $ln -replace '^\[umd pid=\d+ tid=\d+\] ', ''
-    if ($t -match 'err|fail|tu_|turnip|MESA|physical|VK_|vdrm|version' -and $seen.Add($t)) { $L.Add($t); if (++$n -ge 150) { break } } } }
+if (Test-Path $u) { try { $seen = New-Object 'System.Collections.Generic.HashSet[string]'; $n = 0
+  $fs = New-Object IO.FileStream($u, 'Open', 'Read', 'ReadWrite,Delete'); $sr = New-Object IO.StreamReader($fs)
+  while ($null -ne ($ln = $sr.ReadLine())) { $t = $ln -replace '^\[umd pid=\d+ tid=\d+\] ', ''
+    if ($t -match 'err|warn|fail|unsupported|tu_|turnip|physical|VK_ERROR|vdrm' -and $seen.Add($t)) { $L.Add($t); if (++$n -ge 300) { break } } }; $sr.Close() } catch { $L.Add("umd.log read failed: $_") } }
 $L.Add("--- dwm crash dumps ---")
 $dmp = Get-ChildItem 'C:\ProgramData\DroidVM-GPU\dumps' -Filter *.dmp -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending
 $dmp | Select-Object -First 5 | ForEach-Object { $L.Add("$($_.Name) $($_.Length)") }
