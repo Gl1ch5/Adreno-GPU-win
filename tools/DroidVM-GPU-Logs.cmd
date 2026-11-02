@@ -60,9 +60,14 @@ Get-WinEvent -FilterHashtable @{LogName='System','Application'; Level=1,2,3; Sta
 $L.Add("--- DXVK logs (newest) ---")
 Get-ChildItem 'C:\ProgramData\DroidVM-GPU\dxvk' -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 3 | ForEach-Object {
   $L.Add("## $($_.Name) $($_.LastWriteTime) $($_.Length) bytes"); Get-Content $_.FullName -Tail 120 | ForEach-Object { $L.Add($_) } }
+$L.Add("--- mesa.log (Turnip) ---")
+$m = 'C:\ProgramData\DroidVM-GPU\dxvk\mesa.log'
+if (Test-Path $m) { Get-Content $m -TotalCount 200 | ForEach-Object { $L.Add($_) } } else { $L.Add('(no mesa.log)') }
 $L.Add("--- umd.log: unique error-like lines ---")
 $u = 'C:\ProgramData\DroidVM-GPU\dxvk\umd.log'
-if (Test-Path $u) { Get-Content $u | ForEach-Object { $_ -replace '^\[umd pid=\d+ tid=\d+\] ', '' } | Where-Object { $_ -match 'err|fail|tu_|turnip|MESA|vk|device|physical|VK_' } | Select-Object -Unique -First 150 | ForEach-Object { $L.Add($_) } }
+if (Test-Path $u) { $seen = New-Object 'System.Collections.Generic.HashSet[string]'; $n = 0
+  foreach ($ln in [IO.File]::ReadLines($u)) { $t = $ln -replace '^\[umd pid=\d+ tid=\d+\] ', ''
+    if ($t -match 'err|fail|tu_|turnip|MESA|physical|VK_|vdrm|version' -and $seen.Add($t)) { $L.Add($t); if (++$n -ge 150) { break } } } }
 $L.Add("--- dwm crash dumps ---")
 $dmp = Get-ChildItem 'C:\ProgramData\DroidVM-GPU\dumps' -Filter *.dmp -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending
 $dmp | Select-Object -First 5 | ForEach-Object { $L.Add("$($_.Name) $($_.Length)") }
@@ -91,7 +96,7 @@ if ($upTok -notlike '__UPLOAD*') {
   } catch { Add-Content -Encoding UTF8 $out "upload: FAILED $_" }
 }
 # reset diagnostics for the next boot (key must exist for the driver)
-Get-ChildItem 'C:\ProgramData\DroidVM-GPU\dxvk' -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+Get-ChildItem 'C:\ProgramData\DroidVM-GPU\dxvk' -File -ErrorAction SilentlyContinue | ForEach-Object { try { Remove-Item $_.FullName -Force -ErrorAction Stop } catch { Clear-Content $_.FullName -ErrorAction SilentlyContinue } }
 Remove-Item $key -Force -ErrorAction SilentlyContinue
 New-Item $key -Force | Out-Null
 '@
