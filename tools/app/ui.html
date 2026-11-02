@@ -96,6 +96,11 @@ svg{flex:none}.muted{color:var(--sub);font-size:12px;margin-top:8px}
 <div class="row"><span>Windows</span><span id="win">…</span></div>
 <div class="row"><span>Процессор</span><span id="cpu">…</span></div>
 <div class="row"><span>ОЗУ ВМ</span><span id="ram">…</span></div>
+<div class="row"><span>Пул GPU (адрес)</span><span id="poolbase">…</span></div>
+<div class="btns"><select id="vmmem" style="font:inherit;padding:6px 10px;border-radius:5px;border:1px solid var(--stroke);background:var(--card);color:var(--text)">
+<option>3</option><option selected>4</option><option>5</option><option>6</option><option>8</option><option>10</option><option>12</option></select>
+<button class="primary" onclick="setMem()">Настроить под память ВМ (ГБ)</button></div>
+<div class="muted">Сначала нажмите здесь, потом выключите ВМ и поставьте в DroidVM ту же память. Память ВМ должна совпадать, иначе GPU не подключится (аварийный выход — Enable display device = off).</div>
 <div class="row"><span>Время работы</span><span id="uptime">…</span></div></section>
 </main>
 <div id="toast"></div>
@@ -120,7 +125,8 @@ async function load(){if(loading)return;loading=true;let s;try{s=await (await fe
   $('mesa').textContent=s.mesa||'—';$('fl').textContent=s.fl?'D3D '+s.fl:'—';
   const p3=Math.min(100,s.eng3d||0),pc=Math.min(100,s.engcopy||0);$('e3d').textContent=p3+' %';$('m3d').style.width=p3+'%';$('ecopy').textContent=pc+' %';$('mcopy').style.width=pc+'%';
   $('vram').textContent=(s.vramMB??'—')+' МБ';$('shared').textContent=(s.sharedMB??'—')+' МБ';
-  $('win').textContent=s.win||'—';$('cpu').textContent=s.cpu?s.cpu+' · '+s.cores+' потоков':'—';$('ram').textContent=s.ramGB?s.ramGB+' ГБ (свободно '+s.freeGB+')':'—';if(s.boot){const ms=Date.now()-Date.parse(s.boot),m=Math.floor(ms/60000);$('uptime').textContent=Math.floor(m/60)+' ч '+(m%60)+' мин'}
+  $('win').textContent=s.win||'—';$('cpu').textContent=s.cpu?s.cpu+' · '+s.cores+' потоков':'—';$('ram').textContent=s.ramGB?s.ramGB+' ГБ (свободно '+s.freeGB+')':'—';if(s.boot){const ms=Date.now()-Date.parse(s.boot),m=Math.floor(ms/60000);$('poolbase').textContent=s.poolbase||'—';
+  $('uptime').textContent=Math.floor(m/60)+' ч '+(m%60)+' мин'}
   $('status').innerHTML=s.status==='OK'?pill('ok','Работает'):s.status?pill('err',s.status+' (код '+(s.problem??'?')+')'):pill('warn','Выключено');
   $('driver').textContent=s.driver?s.driver+'  (build-'+s.driver.split('.').pop()+')':'—';
   $('mode').textContent=s.mode||'—';
@@ -137,6 +143,7 @@ async function load(){if(loading)return;loading=true;let s;try{s=await (await fe
     return `<label class="tg"><span>${v} <span class="muted">(${k})</span>${tag}</span><span class="sw"><input type="checkbox" data-fix="${k}" ${sv?'checked':''} onchange="dirty=true"><i></i></span></label>`}).join('')}
   $('cpuwait').checked=s.cpuwait==='1';$('tdr').checked=!!s.tdr;$('verbose').checked=s.verbose==='1';
 }
+async function setMem(){const g=$('vmmem').value;if(!confirm('Настроить пул GPU под ВМ на '+g+' ГБ? После этого обязательно поставьте в DroidVM память '+g+' ГБ.'))return;await act('vmmem',g)}
 function allFixes(v){dirty=true;document.querySelectorAll('[data-fix]').forEach(x=>x.checked=v)}
 async function saveFixes(){const f=[...document.querySelectorAll('[data-fix]')].filter(x=>x.checked).map(x=>x.dataset.fix);
   await post('cpuwait',$('cpuwait').checked);await post('tdr',$('tdr').checked);await post('verbose',$('verbose').checked);dirty=false;await act('fix',f)}

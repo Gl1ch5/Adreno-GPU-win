@@ -5,7 +5,7 @@ Windows only. Runs elevated (PyInstaller --uac-admin). No third-party deps.
 import json, os, subprocess, sys, threading, time, urllib.request, webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "1.8"
+APP_VERSION = "1.9"
 REPO = "Gl1ch5/Adreno-GPU-win"
 TASK = "DroidVM GPU logs"
 TOOL_DIR = r"C:\ProgramData\DroidVM-GPU"
@@ -64,7 +64,7 @@ $env_ = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment'
   driver = $drv; status = "$($p.Status)"; problem = (Get-PnpDeviceProperty -InstanceId $p.InstanceId -KeyName DEVPKEY_Device_ProblemCode).Data
   device = $p.FriendlyName; gpu = $gpu; mesa = $mesa; fl = $fl
   mode = if ($v) { "$($v.CurrentHorizontalResolution)x$($v.CurrentVerticalResolution) @ $($v.CurrentRefreshRate) Hz" } else { $null }
-  dwm = $mods; tu = (Get-ItemProperty $env_).TU_DEBUG; verbose = (Get-ItemProperty $env_).VIRTIO_WDDM_VERBOSE; cpuwait = (Get-ItemProperty $env_).TU_WIN_SUBMIT_CPU_WAIT
+  dwm = $mods; tu = (Get-ItemProperty $env_).TU_DEBUG; verbose = (Get-ItemProperty $env_).VIRTIO_WDDM_VERBOSE; $pk = Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Services\VirtioGpu\Parameters'; poolbase = if ($pk.PoolBaseLow -ne $null) { '0x{0:x}' -f ([uint64]$pk.PoolBaseHigh * 4294967296 + [uint32]$pk.PoolBaseLow) } else { $null }; cpuwait = (Get-ItemProperty $env_).TU_WIN_SUBMIT_CPU_WAIT
   lastlog = if ($bf) { $bf.LastWriteTime.ToString('dd.MM HH:mm:ss') } else { $null }; upload = $up
   task = [bool]$task
   testsign = [bool](bcdedit /enum '{current}' | Select-String -Pattern 'testsigning\s+Yes')
@@ -254,6 +254,17 @@ def action(name, arg):
         os.makedirs(LOG_DIR, exist_ok=True); os.startfile(LOG_DIR); return {"ok": True, "msg": "Открыто"}
     if name == "fix":
         return {"ok": True, "msg": "Сохранено: " + set_fix(arg or []) + ". Применится после перезагрузки"}
+    if name == "vmmem":
+        # DroidVM places the drm2kgsl pool in the last 64 MiB of guest RAM:
+        # base = 0x80000000 + RAM - 64 MiB (3 GiB -> 0x13c000000, matches the host log)
+        gb = int(arg)
+        if gb not in (3, 4, 5, 6, 8, 10, 12):
+            return {"ok": False, "msg": "Неверный объём"}
+        base = 0x80000000 + gb * (1 << 30) - (64 << 20)
+        key = r"HKLM:\SYSTEM\CurrentControlSet\Services\VirtioGpu\Parameters"
+        ps(f"New-Item '{key}' -Force | Out-Null; Set-ItemProperty '{key}' PoolBaseLow {base & 0xffffffff} -Type DWord; "
+           f"Set-ItemProperty '{key}' PoolBaseHigh {base >> 32} -Type DWord; Set-ItemProperty '{key}' PoolSizeMiB 64 -Type DWord")
+        return {"ok": True, "msg": f"Пул GPU настроен на ВМ {gb} ГБ (0x{base:x}). Выключите ВМ, поставьте в DroidVM память {gb} ГБ и запустите"}
     if name == "verbose":
         ps("[Environment]::SetEnvironmentVariable('VIRTIO_WDDM_VERBOSE'," + ("'1'" if arg else "$null") + ",'Machine')")
         return {"ok": True, "msg": "Подробный лог " + ("включён" if arg else "выключен") + ". Нужна перезагрузка"}
