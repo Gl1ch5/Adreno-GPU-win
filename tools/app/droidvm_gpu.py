@@ -5,7 +5,7 @@ Windows only. Runs elevated (PyInstaller --uac-admin). No third-party deps.
 import json, os, subprocess, sys, threading, time, urllib.request, webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "1.7"
+APP_VERSION = "1.8"
 REPO = "Gl1ch5/Adreno-GPU-win"
 TASK = "DroidVM GPU logs"
 TOOL_DIR = r"C:\ProgramData\DroidVM-GPU"
@@ -64,7 +64,7 @@ $env_ = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment'
   driver = $drv; status = "$($p.Status)"; problem = (Get-PnpDeviceProperty -InstanceId $p.InstanceId -KeyName DEVPKEY_Device_ProblemCode).Data
   device = $p.FriendlyName; gpu = $gpu; mesa = $mesa; fl = $fl
   mode = if ($v) { "$($v.CurrentHorizontalResolution)x$($v.CurrentVerticalResolution) @ $($v.CurrentRefreshRate) Hz" } else { $null }
-  dwm = $mods; tu = (Get-ItemProperty $env_).TU_DEBUG; cpuwait = (Get-ItemProperty $env_).TU_WIN_SUBMIT_CPU_WAIT
+  dwm = $mods; tu = (Get-ItemProperty $env_).TU_DEBUG; verbose = (Get-ItemProperty $env_).VIRTIO_WDDM_VERBOSE; cpuwait = (Get-ItemProperty $env_).TU_WIN_SUBMIT_CPU_WAIT
   lastlog = if ($bf) { $bf.LastWriteTime.ToString('dd.MM HH:mm:ss') } else { $null }; upload = $up
   task = [bool]$task
   testsign = [bool](bcdedit /enum '{current}' | Select-String -Pattern 'testsigning\s+Yes')
@@ -254,6 +254,9 @@ def action(name, arg):
         os.makedirs(LOG_DIR, exist_ok=True); os.startfile(LOG_DIR); return {"ok": True, "msg": "Открыто"}
     if name == "fix":
         return {"ok": True, "msg": "Сохранено: " + set_fix(arg or []) + ". Применится после перезагрузки"}
+    if name == "verbose":
+        ps("[Environment]::SetEnvironmentVariable('VIRTIO_WDDM_VERBOSE'," + ("'1'" if arg else "$null") + ",'Machine')")
+        return {"ok": True, "msg": "Подробный лог " + ("включён" if arg else "выключен") + ". Нужна перезагрузка"}
     if name == "cpuwait":
         v = "1" if arg else ""
         ps(f"[Environment]::SetEnvironmentVariable('TU_WIN_SUBMIT_CPU_WAIT',{('$null' if not v else repr(v))},'Machine')")

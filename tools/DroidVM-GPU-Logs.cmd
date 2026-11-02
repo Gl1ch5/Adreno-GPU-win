@@ -88,7 +88,7 @@ $u = 'C:\ProgramData\DroidVM-GPU\dxvk\umd.log'
 if (Test-Path $u) { try { $seen = New-Object 'System.Collections.Generic.HashSet[string]'; $n = 0
   $sr = Open-NewLines $u
   while ($null -ne ($ln = $sr.ReadLine())) { $t = $ln -replace '^\[umd pid=\d+ tid=\d+\] ', ''
-    if ($t -match 'err|warn|fail|unsupported|tu_|turnip|physical|VK_ERROR|vdrm' -and $seen.Add($t)) { $L.Add($t); if (++$n -ge 300) { break } } }; $sr.Close() } catch { $L.Add("umd.log read failed: $_") } }
+    if ($t -match 'err|warn|fail|unsupported|tu_|turnip|physical|VK_ERROR|vdrm|OpenResource|shared:|GDI|Present|redirect|stride|format' -and $seen.Add($t)) { $L.Add($t); if (++$n -ge 600) { break } } }; $sr.Close() } catch { $L.Add("umd.log read failed: $_") } }
 $offs.GetEnumerator() | ForEach-Object { "$($_.Key)=$($_.Value)" } | Set-Content $offFile
 $L.Add("--- dwm crash dumps ---")
 $dmp = Get-ChildItem 'C:\ProgramData\DroidVM-GPU\dumps' -Filter *.dmp -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending

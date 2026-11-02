@@ -80,6 +80,7 @@ svg{flex:none}.muted{color:var(--sub);font-size:12px;margin-top:8px}
 <section class="card"><h2><svg width="22" height="22"><use href="#i-wrench"/></svg>Исправления Turnip</h2>
 <label class="tg"><span><b>Длинные таймауты GPU</b> <span class="muted">(TDR 10 с — против сбросов и артефактов)</span></span><span class="sw"><input type="checkbox" id="tdr"><i></i></span></label>
 <div id="fixes"></div>
+<label class="tg"><span><b>Подробный лог драйвера</b> <span class="muted">(VIRTIO_WDDM_VERBOSE — для поиска артефактов, замедляет)</span></span><span class="sw"><input type="checkbox" id="verbose"><i></i></span></label>
 <label class="tg"><span>Ждать GPU перед отправкой (CPU wait)</span><span class="sw"><input type="checkbox" id="cpuwait"><i></i></span></label>
 <div class="btns"><button onclick="allFixes(true)">Включить все</button><button onclick="allFixes(false)">Выключить все</button>
 <button class="primary" onclick="saveFixes()"><svg width="16" height="16"><use href="#i-save"/></svg>Сохранить</button>
@@ -134,11 +135,11 @@ async function load(){if(loading)return;loading=true;let s;try{s=await (await fe
   if(!document.querySelector('[data-fix]')||!dirty){$('fixes').innerHTML=Object.entries(fixList).map(([k,v])=>{const a=act.includes(k),sv=on.includes(k);
     const tag=a&&sv?'<span class="tag on">активно</span>':sv?'<span class="tag pend">после перезагрузки</span>':a?'<span class="tag pend">выкл. после перезагрузки</span>':'';
     return `<label class="tg"><span>${v} <span class="muted">(${k})</span>${tag}</span><span class="sw"><input type="checkbox" data-fix="${k}" ${sv?'checked':''} onchange="dirty=true"><i></i></span></label>`}).join('')}
-  $('cpuwait').checked=s.cpuwait==='1';$('tdr').checked=!!s.tdr;
+  $('cpuwait').checked=s.cpuwait==='1';$('tdr').checked=!!s.tdr;$('verbose').checked=s.verbose==='1';
 }
 function allFixes(v){dirty=true;document.querySelectorAll('[data-fix]').forEach(x=>x.checked=v)}
 async function saveFixes(){const f=[...document.querySelectorAll('[data-fix]')].filter(x=>x.checked).map(x=>x.dataset.fix);
-  await post('cpuwait',$('cpuwait').checked);await post('tdr',$('tdr').checked);dirty=false;await act('fix',f)}
+  await post('cpuwait',$('cpuwait').checked);await post('tdr',$('tdr').checked);await post('verbose',$('verbose').checked);dirty=false;await act('fix',f)}
 async function checkUpdate(){$('updinfo').textContent='Проверяю…';try{const r=await post('checkupdate');
   const cur=parseInt((($('driver').textContent.match(/build-(\d+)/)||[])[1])||0);
   $('updinfo').textContent=r.n>cur?`Доступна ${r.tag} от ${r.date} (у вас build-${cur}). Сделайте клон диска ВМ.`:`Установлена последняя сборка (${r.tag}).`;
