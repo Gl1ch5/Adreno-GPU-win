@@ -18,6 +18,10 @@
 Snapdragon 8 Gen 5 / Adreno 829, Windows 11 ARM64**. Тест — в DroidVM на
 реальном устройстве.
 
+![Диспетчер задач: Qualcomm Adreno 829 (DroidVM) в Windows 11 ARM64](docs/img/task-manager-adreno829.jpg)
+
+*Диспетчер задач в Windows 11 ARM64 под DroidVM: GPU — Qualcomm Adreno 829, build-37.*
+
 **Работает (проверено на устройстве):**
 - аппаратное ускорение рабочего стола: `dwm.exe` рисует через наш DirectX 11
   драйвер → DXVK → Vulkan (Turnip) → GPU Adreno 829 телефона;
