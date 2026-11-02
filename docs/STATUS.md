@@ -104,3 +104,11 @@ GPU-пула, отсюда EINVAL(22). Не проверено.
   Единственный registry-параметр KMD — PresentLocalCopy, на attach не влияет.
   GUEST-blob требует CREATE_GUEST_HANDLE (хост даёт только при udmabuf).
 - Следующий шаг: варианты Renderer в DroidVM; в логе хоста искать `capset|component|gfxstream|attach_iov`.
+
+## 07:04 тест (VirGL + Vulkan + Vulkan(Turnip), Venus pool) — та же ошибка 22
+- `ResourceAttachBacking ComponentError(22)` ×2 и в режиме Venus → не зависит от режима хоста.
+- virglrenderer@wingpu: сообщение `attach_iov: res_handle=... not found/rejected` (ERROR) добавлено
+  в 7490d07 (2026-09-11, "feat: add wddm resource layout support"); crosvm передаёт ERROR в лог.
+  В логах пользователя его нет → вероятно, у пользователя DroidVM старше сентября 2026 (без WDDM-поддержки).
+- Релизы DroidVM: стабильный 0.0.6 (2026-04-14); dev 0.0.6.r242.3348830 (2026-10-12).
+  Рекомендовано: узнать версию, при необходимости обновить до dev (с клоном диска) и повторить тест.
