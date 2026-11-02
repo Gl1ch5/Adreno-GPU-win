@@ -242,3 +242,9 @@ allocations) в triton UMD (`tritonResource.c` ~548 — написан под Me
 
 Настройки ВМ сейчас: память 5120 МиБ, Command buffer pool 256 МБ → пул 0x1b0000000 (программа
 считает base = 0x80000000 + RAM − pool; сверено с логом хоста для 3 ГБ/64 МБ и 5 ГБ/64 МБ).
+- 15:54 VERBOSE=1: общие поверхности dwm (`linear present blob`) — strides от Turnip:
+  71x48→512, 553x48→2304, 32x32→256 (кратно 256), 1024x832→4096, 960x480→3840.
+  Ломаются именно маленькие (кнопки заголовка, трей, значки), где width*4 не кратно 256.
+  Потребитель (dwm) импортирует их через VK_EXT_image_drm_format_modifier с явным rowPitch
+  (resource.c ~1222). Гипотеза: Turnip A8xx не соблюдает явный rowPitch при импорте.
+  Патч virtio-d3d11 0001: лог «import layout MISMATCH» (явный vs фактический rowPitch).

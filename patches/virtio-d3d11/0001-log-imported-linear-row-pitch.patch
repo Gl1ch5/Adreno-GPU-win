@@ -1,0 +1,51 @@
+diff --git a/resource.c b/resource.c
+index 2a1a153..5096363 100644
+--- a/resource.c
++++ b/resource.c
+@@ -20,6 +20,22 @@ SIZE_T APIENTRY virtio_wddm_calc_opened_resource_size(D3D10DDI_HDEVICE hDevice,
+     return sizeof(VIRTIO_WDDM_Resource);
+ }
+ 
++
++/* DroidVM diag: does the ICD honour the explicit row pitch of an imported
++ * linear surface?  A mismatch skews every row of small windows/icons. */
++static void log_import_layout(VIRTIO_WDDM_Device *device, VkImage image,
++                              VkDeviceSize want, UINT w, UINT h)
++{
++    VkImageSubresource sub = { .aspectMask = VK_IMAGE_ASPECT_MEMORY_PLANE_0_BIT_EXT };
++    VkSubresourceLayout got = {0};
++    device->vk_GetImageSubresourceLayout(device->vk, image, &sub, &got);
++    if (got.rowPitch != want)
++        ERROR("import layout MISMATCH %ux%u: explicit rowPitch=%llu, ICD rowPitch=%llu offset=%llu",
++              w, h, (unsigned long long)want, (unsigned long long)got.rowPitch, (unsigned long long)got.offset);
++    else
++        VERBOSE("import layout ok %ux%u: rowPitch=%llu", w, h, (unsigned long long)want);
++}
++
+ static inline const char *resource_type_name(D3D10DDIRESOURCE_TYPE type) {
+     switch (type) {
+         case D3D10DDIRESOURCE_BUFFER:      return "BUFFER";
+@@ -855,6 +871,7 @@ void APIENTRY virtio_wddm_create_resource(D3D10DDI_HDEVICE hDevice, const D3D11D
+         };
+ 
+         hr = create_shared_vk_image(device, &desc, VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT, &modifier_info, &handle_info, &resource->memory, &resource->image, NULL);
++        if (SUCCEEDED(hr)) log_import_layout(device, resource->image, planes[0].rowPitch, desc.Width, desc.Height);
+         if (FAILED(hr)) {
+             ERROR("%s: failed to import shared 3d texture to vulkan", __FUNCTION__);
+             tritonSetError(&device->base, hr);
+@@ -1244,6 +1261,7 @@ void APIENTRY virtio_wddm_open_resource(D3D10DDI_HDEVICE hDevice, const D3D10DDI
+         };
+ 
+         hr = create_shared_vk_image(device, &desc, VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT, &modifier_info, &handle_info, &resource->memory, &resource->image, NULL);
++        if (SUCCEEDED(hr)) log_import_layout(device, resource->image, planes[0].rowPitch, desc.Width, desc.Height);
+         if (FAILED(hr)) {
+             ERROR("%s: failed to import shared 3d texture to vulkan", __FUNCTION__);
+             tritonSetError(&device->base, hr);
+@@ -1327,6 +1345,7 @@ void APIENTRY virtio_wddm_open_resource(D3D10DDI_HDEVICE hDevice, const D3D10DDI
+ 
+         if (alloc_info.blob.info.modifier != 0x00FFFFFFFFFFFFFF) {
+             hr = create_shared_vk_image(device, &desc, VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT, &modifier_info, &handle_info, &resource->memory, &resource->image, NULL);
++        if (SUCCEEDED(hr)) log_import_layout(device, resource->image, planes[0].rowPitch, desc.Width, desc.Height);
+         } else {
+             hr = create_shared_vk_image(device, &desc, VK_IMAGE_TILING_OPTIMAL, NULL, &handle_info, &resource->memory, &resource->image, NULL);
+         }
