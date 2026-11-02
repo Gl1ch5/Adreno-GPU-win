@@ -80,7 +80,8 @@ svg{flex:none}.muted{color:var(--sub);font-size:12px;margin-top:8px}
 <label class="tg"><span><b>Длинные таймауты GPU</b> <span class="muted">(TDR 10 с — против сбросов и артефактов)</span></span><span class="sw"><input type="checkbox" id="tdr"><i></i></span></label>
 <div id="fixes"></div>
 <label class="tg"><span>Ждать GPU перед отправкой (CPU wait)</span><span class="sw"><input type="checkbox" id="cpuwait"><i></i></span></label>
-<div class="btns"><button class="primary" onclick="saveFixes()"><svg width="16" height="16"><use href="#i-save"/></svg>Сохранить</button>
+<div class="btns"><button onclick="allFixes(true)">Включить все</button><button onclick="allFixes(false)">Выключить все</button>
+<button class="primary" onclick="saveFixes()"><svg width="16" height="16"><use href="#i-save"/></svg>Сохранить</button>
 <button onclick="act('reboot')"><svg width="16" height="16"><use href="#i-power"/></svg>Перезагрузить</button></div>
 <div class="muted">Только отключают оптимизации (медленнее, но безопасно). Действуют после перезагрузки.</div></section>
 <section class="card"><h2><svg width="22" height="22"><use href="#i-pulse"/></svg>Нагрузка GPU</h2>
@@ -130,6 +131,7 @@ async function load(){if(loading)return;loading=true;let s;try{s=await (await fe
   $('fixes').innerHTML=Object.entries(fixList).map(([k,v])=>`<label class="tg"><span>${v} <span class="muted">(${k})</span></span><span class="sw"><input type="checkbox" data-fix="${k}" ${on.includes(k)?'checked':''}><i></i></span></label>`).join('');
   $('cpuwait').checked=s.cpuwait==='1';$('tdr').checked=!!s.tdr;
 }
+function allFixes(v){document.querySelectorAll('[data-fix]').forEach(x=>x.checked=v)}
 async function saveFixes(){const f=[...document.querySelectorAll('[data-fix]')].filter(x=>x.checked).map(x=>x.dataset.fix);
   await post('cpuwait',$('cpuwait').checked);await post('tdr',$('tdr').checked);await act('fix',f)}
 async function checkUpdate(){$('updinfo').textContent='Проверяю…';try{const r=await post('checkupdate');

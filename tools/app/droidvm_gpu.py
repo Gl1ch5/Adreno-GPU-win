@@ -5,12 +5,16 @@ Windows only. Runs elevated (PyInstaller --uac-admin). No third-party deps.
 import json, os, subprocess, sys, threading, time, urllib.request, webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "1.5"
+APP_VERSION = "1.6"
 REPO = "Gl1ch5/Adreno-GPU-win"
 TASK = "DroidVM GPU logs"
 TOOL_DIR = r"C:\ProgramData\DroidVM-GPU"
 LOG_DIR = os.path.join(os.path.expanduser("~"), "Downloads", "DroidVM-GPU-Logs")
 FIXES = {"noubwc": "Без сжатия UBWC", "sysmem": "Без тайловой памяти (GMEM)",
+         "nocb": "Без параллельного биннинга (A8xx)", "nolrz": "Без LRZ", "nolrzfc": "Без LRZ fast clear",
+         "nobinmerging": "Без склейки тайлов", "noconcurrentresolves": "Без параллельных resolve",
+         "noconcurrentunresolves": "Без параллельных unresolve", "nomultipos": "Без multipos",
+         "3d_load": "Загрузка тайлов через 3D",
          "flushall": "Сброс кэшей после каждой отрисовки", "syncdraw": "Синхронизация после отрисовки"}
 NOWIN = 0x08000000  # CREATE_NO_WINDOW
 last_ping = time.time()

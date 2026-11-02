@@ -199,3 +199,7 @@ GPU-пула, отсюда EINVAL(22). Не проверено.
 - INF: имя устройства «Qualcomm Adreno 829 (DroidVM, unofficial build)» (со следующей сборки);
   сборщик и программа ищут устройство по PCI\VEN_1AF4&DEV_1050.
 - Программа 1.3: прогресс-бар, имя GPU из лога DXVK, загрузка 3D/Copy, VRAM, система.
+- 13:59 (быстрый лог, только новые строки): за время артефактов ошибок нет (ни DEVICE_LOST,
+  ни submit failed). Артефакты — неверная отрисовка Turnip на A8xx (gen2), не сбой.
+- Программа 1.6: переключатели TU_DEBUG nocb, nolrz, nolrzfc, nobinmerging,
+  noconcurrent(un)resolves, nomultipos, 3d_load + «Включить все» для бисекции.
