@@ -122,5 +122,6 @@ jobs:
             dist/DroidVM-GPU-Setup.exe
             dist/DroidVM-GPU-Setup-diag.exe
             dist/DroidVM-GPU-Uninstall.exe
+            dist/DroidVM-GPU-Logs.cmd
             dist/DroidVM-GPU-driver.zip
             dist/SHA256SUMS.txt

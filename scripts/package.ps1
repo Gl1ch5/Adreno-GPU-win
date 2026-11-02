@@ -96,6 +96,7 @@ if (Test-Path $diagSys) {
 Sign (Join-Path $stage 'DroidVM-GPU-Setup.exe'), (Join-Path $stage 'DroidVM-GPU-Uninstall.exe')
 
 Copy-Item (Join-Path $stage 'DroidVM-GPU-Setup.exe'), (Join-Path $stage 'DroidVM-GPU-Uninstall.exe') $dist
+Copy-Item tools\DroidVM-GPU-Logs.cmd $dist
 Compress-Archive -Path $drv, (Join-Path $stage 'DroidVM-GPU-Test.cer'), package\install.ps1, package\uninstall.ps1 -DestinationPath (Join-Path $dist 'DroidVM-GPU-driver.zip')
 Get-ChildItem $dist -File | ForEach-Object { "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name } |
     Set-Content (Join-Path $dist 'SHA256SUMS.txt')
