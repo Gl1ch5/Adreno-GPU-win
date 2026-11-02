@@ -155,3 +155,10 @@ GPU-пула, отсюда EINVAL(22). Не проверено.
   (3a09957, 2026-10-14). Нужен crosvm из ветки wingpu на хосте.
 - Важно: в DroidVM должен стоять Graphics API = Native Context (в режиме Vulkan
   Windows видит только capset venus).
+
+## 2026-11-02 11:34 — build-34: пул работает, Turnip не знает chip_id
+- Обход пула через реестр работает: `VESCMAPB` = 0, `BlobMapStage=4`, `VESCEXEC` идут,
+  `physical render enabled`. Подключение vdrm-wddm проходит.
+- Новая ошибка: `tu_device.cc:1778: device (chip_id = 44030A00, gpu_id = 6840) is unsupported`.
+  Хост нормализует 0x44030a20 → 0x44030a00, а в freedreno_devices.py есть только KGSL-id.
+  Патч mesa 0002 добавляет `0x44030a00` (как у a840/FD750 «virtio guest, patch level 0»).
