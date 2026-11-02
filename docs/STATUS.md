@@ -253,3 +253,24 @@ allocations) в triton UMD (`tritonResource.c` ~548 — написан под Me
   TYPE_3D читает с align(w*4, 256) (Metal-хост, tritonResource.c ~571); Turnip не импортирует
   linear с pitch не кратным 64. Патч KMD 0002: `droidvm_pitch(w) = align(w*4, 256)` для
   shadow/staging Pitch+size, local copy и fallback layout. Основной экран (1920*4) не меняется.
+
+## 2026-11-02 16:30 — build-39: pitch 256 для GDI-поверхностей — артефакты остались
+- Патч KMD `0002-gdi-surface-pitch-256` (shadow/staging pitch = align(w*4,256)) + диагностика UMD
+  (`import layout ok/MISMATCH` в umd.log). Ничего не сломал, но артефакты не убрал.
+- Чёрный экран после установки build-39 был НЕ из-за патча: INF перезаписал PoolBase на
+  значения 3 ГБ/64 МБ → Vulkan `Failed to enumerate adapters`, dwm 0x889800b0 по кругу.
+  Лечение — «Настроить» в программе. С build-40 INF пишет пул с NOCLOBBER (0x00010003).
+- Сборщик логов: строки umd.log дедуплицируются по «форме» (цифры→#), спам present пропущен,
+  `layout|MISMATCH` включены. Строк `import layout` от build-39 ещё не видели — нужен лог после
+  перезагрузки с новым сборщиком.
+
+### Гипотезы на завтра
+1. Смотреть `import layout MISMATCH`: если есть — Turnip выбирает свой pitch/tiling (UBWC,
+   tile) вместо явного; проверить `TU_DEBUG=noubwc` вместе с `VK_EXT_image_drm_format_modifier`
+   linear, align 64/256 в tu_image.
+2. Формат/swizzle: BGRA vs RGBA или sRGB у GDI-поверхностей (пёстрые/зелёные пятна = каналы/
+   неинициализированная память). Логировать DXGI-формат импортируемых ресурсов.
+3. Синхронизация CPU↔GPU: GDI пишет в staging без flush/invalidate кэша (Gunyah, cached
+   mapping) → устаревшие данные. Проверить mapping как write-combined/uncached в KMD.
+4. Частичные обновления (dirty rects) при present: копируется только часть, остальное мусор.
+5. Пул мал/фрагментирован: при 256 МБ стало лучше — проверить 512 МБ.
