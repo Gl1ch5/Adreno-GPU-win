@@ -57,6 +57,12 @@ foreach ($pn in 'dwm','explorer') {
 $L.Add("--- Errors/warnings, last 30 min (System+Application) ---")
 Get-WinEvent -FilterHashtable @{LogName='System','Application'; Level=1,2,3; StartTime=(Get-Date).AddMinutes(-30)} -ErrorAction SilentlyContinue |
   Select-Object -First 60 | ForEach-Object { $L.Add("$($_.TimeCreated) [$($_.LogName)/$($_.ProviderName) $($_.Id)] $(($_.Message -replace '\s+',' ').Substring(0, [Math]::Min(300, ($_.Message -replace '\s+',' ').Length)))") }
+$L.Add("--- DXVK logs (newest) ---")
+Get-ChildItem 'C:\ProgramData\DroidVM-GPU\dxvk' -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 3 | ForEach-Object {
+  $L.Add("## $($_.Name) $($_.LastWriteTime) $($_.Length) bytes"); Get-Content $_.FullName -Tail 120 | ForEach-Object { $L.Add($_) } }
+$L.Add("--- dwm crash dumps ---")
+$dmp = Get-ChildItem 'C:\ProgramData\DroidVM-GPU\dumps' -Filter *.dmp -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending
+$dmp | Select-Object -First 5 | ForEach-Object { $L.Add("$($_.Name) $($_.Length)") }
 $L.Add("--- dxdiag (display) ---")
 try {
   $dx = Join-Path $env:TEMP 'dxdiag.txt'; Remove-Item $dx -ErrorAction SilentlyContinue
@@ -74,6 +80,10 @@ if ($upTok -notlike '__UPLOAD*') {
     Invoke-RestMethod -Uri 'https://grzxk.ru:8877/upload' -Method Post -TimeoutSec 30 `
       -Headers @{ 'X-Token' = $upTok; 'X-Name' = "$env:COMPUTERNAME-boot_$ts.txt" } `
       -ContentType 'text/plain; charset=utf-8' -Body ([IO.File]::ReadAllBytes($out)) | Out-Null
+    if ($dmp) { $d = $dmp[0]; Invoke-RestMethod -Uri 'https://grzxk.ru:8877/upload' -Method Post -TimeoutSec 60 `
+      -Headers @{ 'X-Token' = $upTok; 'X-Name' = "$env:COMPUTERNAME-boot_$ts.dmp.b64" } `
+      -ContentType 'text/plain' -Body ([Convert]::ToBase64String([IO.File]::ReadAllBytes($d.FullName))) | Out-Null
+      Remove-Item 'C:\ProgramData\DroidVM-GPU\dumps\*' -Force -ErrorAction SilentlyContinue }
     Add-Content -Encoding UTF8 $out 'upload: ok'
   } catch { Add-Content -Encoding UTF8 $out "upload: FAILED $_" }
 }
@@ -91,6 +101,16 @@ $act = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -
 $trg = New-ScheduledTaskTrigger -AtStartup
 $trg.Delay = 'PT120S'
 Register-ScheduledTask -TaskName 'DroidVM GPU logs' -Action $act -Trigger $trg -User 'SYSTEM' -RunLevel Highest -Force | Out-Null
+
+# 2b) DXVK log + dwm crash dumps (dwm runs as DWM-n user: folders must be writable)
+foreach ($sub in 'dxvk','dumps') { $p = "C:\ProgramData\DroidVM-GPU\$sub"; New-Item $p -ItemType Directory -Force | Out-Null; icacls $p /grant '*S-1-1-0:(OI)(CI)M' | Out-Null }
+[Environment]::SetEnvironmentVariable('DXVK_LOG_LEVEL', 'info', 'Machine')
+[Environment]::SetEnvironmentVariable('DXVK_LOG_PATH', 'C:\ProgramData\DroidVM-GPU\dxvk', 'Machine')
+$wer = 'HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\dwm.exe'
+New-Item $wer -Force | Out-Null
+Set-ItemProperty $wer -Name DumpFolder -Value 'C:\ProgramData\DroidVM-GPU\dumps' -Type ExpandString
+Set-ItemProperty $wer -Name DumpType -Value 1 -Type DWord
+Set-ItemProperty $wer -Name DumpCount -Value 3 -Type DWord
 
 # 3) Remote Desktop + use hardware GPU in RDP sessions
 Set-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server' -Name fDenyTSConnections -Value 0
