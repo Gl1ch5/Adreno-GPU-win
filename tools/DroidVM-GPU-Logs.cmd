@@ -38,6 +38,8 @@ $L.Add("--- Driver package ---")
 $L.Add(((pnputil /enum-devices /class Display /drivers) -join "`n"))
 $L.Add("--- IPv4 ---")
 Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object IPAddress -ne '127.0.0.1' | ForEach-Object { $L.Add("$($_.InterfaceAlias): $($_.IPAddress)") }
+$L.Add("--- Turnip env (machine) ---")
+$L.Add("TU_DEBUG=" + [Environment]::GetEnvironmentVariable('TU_DEBUG','Machine') + "  CPU_WAIT=" + [Environment]::GetEnvironmentVariable('TU_WIN_SUBMIT_CPU_WAIT','Machine') + "  TdrDelay=" + (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\GraphicsDrivers' -ErrorAction SilentlyContinue).TdrDelay)
 $L.Add("--- Bringup registry (written by diag driver) ---")
 if (Test-Path $key) {
   $p = Get-ItemProperty $key
@@ -80,7 +82,7 @@ $L.Add("--- mesa.log (Turnip), new lines since last collect ---")
 $m = 'C:\ProgramData\DroidVM-GPU\dxvk\mesa.log'
 if (Test-Path $m) { try { $seen2 = New-Object 'System.Collections.Generic.HashSet[string]'; $n2 = 0
   $sr2 = Open-NewLines $m
-  while ($null -ne ($ln = $sr2.ReadLine())) { if ($ln -match 'error|warn|fail|lost|hang|timeout|fault|not consumed|not reached|reject' -and $seen2.Add($ln)) { $L.Add($ln); if (++$n2 -ge 200) { break } } }; $sr2.Close() } catch { $L.Add("mesa.log read failed: $_") } } else { $L.Add('(no mesa.log)') }
+  while ($null -ne ($ln = $sr2.ReadLine())) { if ($ln -match 'error|warn|fail|lost|hang|timeout|fault|not consumed|not reached|reject|TU_DEBUG=' -and $seen2.Add($ln)) { $L.Add($ln); if (++$n2 -ge 200) { break } } }; $sr2.Close() } catch { $L.Add("mesa.log read failed: $_") } } else { $L.Add('(no mesa.log)') }
 $L.Add("--- umd.log: new unique error-like lines ---")
 $u = 'C:\ProgramData\DroidVM-GPU\dxvk\umd.log'
 if (Test-Path $u) { try { $seen = New-Object 'System.Collections.Generic.HashSet[string]'; $n = 0
