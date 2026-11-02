@@ -25,6 +25,12 @@ label.tg:last-of-type{border:0}.sw{position:relative;width:40px;height:20px;flex
 .sw i{position:absolute;inset:0;border-radius:10px;border:1px solid var(--sub);transition:.15s}
 .sw i:after{content:"";position:absolute;width:12px;height:12px;border-radius:50%;background:var(--sub);top:3px;left:4px;transition:.15s}
 .sw input:checked+i{background:var(--accent);border-color:var(--accent)}.sw input:checked+i:after{left:22px;background:var(--accent-t)}
+.bar{position:fixed;top:0;left:0;right:0;height:3px;overflow:hidden;opacity:0;transition:opacity .2s;z-index:9}.bar.on{opacity:1}
+.bar i{position:absolute;top:0;bottom:0;left:0;background:var(--accent);transition:width .3s}
+.bar.ind i{width:30%;animation:ind 1.2s ease-in-out infinite}@keyframes ind{0%{left:-30%}100%{left:100%}}
+.prog{height:4px;border-radius:2px;background:var(--stroke);overflow:hidden;margin-top:10px;display:none}.prog i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+.meter{height:6px;border-radius:3px;background:var(--stroke);overflow:hidden;margin-top:4px}.meter i{display:block;height:100%;background:linear-gradient(90deg,#4cc2ff,#0067c0);transition:width .5s}
+.big{font:600 28px "Segoe UI Variable Display","Segoe UI",sans-serif}
 #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(80px);background:var(--card);backdrop-filter:blur(30px);border:1px solid var(--stroke);border-radius:8px;padding:10px 16px;box-shadow:0 8px 24px #0003;transition:.25s;max-width:90vw}
 #toast.on{transform:translateX(-50%)}
 svg{flex:none}.muted{color:var(--sub);font-size:12px;margin-top:8px}
@@ -44,11 +50,17 @@ svg{flex:none}.muted{color:var(--sub);font-size:12px;margin-top:8px}
 <symbol id="i-sync" viewBox="0 0 20 20"><path d="M16 7a6.5 6.5 0 0 0-11.7-1M4 13a6.5 6.5 0 0 0 11.7 1M4 2v4h4M16 18v-4h-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 <symbol id="i-power" viewBox="0 0 20 20"><path d="M10 2.5v7M6 5a6.5 6.5 0 1 0 8 0" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
 <symbol id="i-save" viewBox="0 0 20 20"><path d="M4 3h9l3 3v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM6 3v5h7V3M6 17v-5h8v5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+<symbol id="i-pulse" viewBox="0 0 32 32"><rect x="3" y="5" width="26" height="22" rx="4" fill="url(#g1)"/><path d="M7 17h5l3-7 4 12 3-5h4" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-pc" viewBox="0 0 32 32"><rect x="3" y="5" width="26" height="17" rx="3" fill="url(#g2)"/><rect x="6" y="8" width="20" height="11" rx="1.5" fill="#ffffff55"/><path d="M12 27h8M16 22v5" stroke="#6b3fd4" stroke-width="2.4" stroke-linecap="round"/></symbol>
 </defs></svg>
-<header><svg width="40" height="40"><use href="#i-gpu"/></svg><div><h1>DroidVM GPU</h1><div class="sub">Неофициальная сборка · Adreno → Windows on ARM · <span id="appv"></span></div></div></header>
+<div class="bar" id="bar"><i id="bari"></i></div>
+<header><svg width="40" height="40"><use href="#i-gpu"/></svg><div><h1 id="title">DroidVM GPU</h1><div class="sub">Неофициальная сборка · Adreno → Windows on ARM · <span id="appv"></span></div></div></header>
 <main>
 <section class="card"><h2><svg width="22" height="22"><use href="#i-chip"/></svg>Драйвер</h2>
-<div class="row"><span>Устройство</span><span id="device">…</span></div>
+<div class="row"><span>GPU</span><span id="gpu">…</span></div>
+<div class="row"><span>Устройство Windows</span><span id="device">…</span></div>
+<div class="row"><span>Драйвер Vulkan</span><span id="mesa">…</span></div>
+<div class="row"><span>Уровень DirectX</span><span id="fl">…</span></div>
 <div class="row"><span>Статус</span><span id="status">…</span></div>
 <div class="row"><span>Версия</span><span id="driver">…</span></div>
 <div class="row"><span>Режим экрана</span><span id="mode">…</span></div>
@@ -56,6 +68,7 @@ svg{flex:none}.muted{color:var(--sub);font-size:12px;margin-top:8px}
 <div class="row"><span>Тестовая подпись</span><span id="testsign">…</span></div>
 <div class="btns"><button class="primary" onclick="checkUpdate()"><svg width="16" height="16"><use href="#i-up"/></svg>Проверить обновление</button>
 <button id="upd" onclick="doUpdate()" disabled><svg width="16" height="16"><use href="#i-up"/></svg>Установить</button></div>
+<div class="prog" id="prog"><i id="progi"></i></div>
 <div class="muted" id="updinfo">Перед установкой сделайте клон диска ВМ.</div></section>
 <section class="card"><h2><svg width="22" height="22"><use href="#i-log"/></svg>Логи</h2>
 <div class="row"><span>Автосбор при загрузке</span><span id="task">…</span></div>
@@ -70,19 +83,40 @@ svg{flex:none}.muted{color:var(--sub);font-size:12px;margin-top:8px}
 <div class="btns"><button class="primary" onclick="saveFixes()"><svg width="16" height="16"><use href="#i-save"/></svg>Сохранить</button>
 <button onclick="act('reboot')"><svg width="16" height="16"><use href="#i-power"/></svg>Перезагрузить</button></div>
 <div class="muted">Только отключают оптимизации (медленнее, но безопасно). Действуют после перезагрузки.</div></section>
+<section class="card"><h2><svg width="22" height="22"><use href="#i-pulse"/></svg>Нагрузка GPU</h2>
+<div class="row"><span>3D</span><span id="e3d">…</span></div><div class="meter"><i id="m3d"></i></div>
+<div class="row" style="margin-top:8px"><span>Копирование</span><span id="ecopy">…</span></div><div class="meter"><i id="mcopy"></i></div>
+<div class="row" style="margin-top:8px"><span>Видеопамять (выделенная)</span><span id="vram">…</span></div>
+<div class="row"><span>Общая память GPU</span><span id="shared">…</span></div>
+<div class="muted">Обновляется каждые 5 секунд.</div></section>
+<section class="card"><h2><svg width="22" height="22"><use href="#i-pc"/></svg>Система</h2>
+<div class="row"><span>Windows</span><span id="win">…</span></div>
+<div class="row"><span>Процессор</span><span id="cpu">…</span></div>
+<div class="row"><span>ОЗУ ВМ</span><span id="ram">…</span></div>
+<div class="row"><span>Время работы</span><span id="uptime">…</span></div></section>
 </main>
 <div id="toast"></div>
 <script>
 const $=id=>document.getElementById(id);
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('on'),4000)}
 function pill(cls,txt){return `<span class="pill ${cls}">${txt}</span>`}
-async function post(action,arg){const r=await fetch('/api/action',{method:'POST',body:JSON.stringify({action,arg})});return r.json()}
+let busy=0;function bar(on,pct){const b=$('bar');b.classList.toggle('on',on);b.classList.toggle('ind',on&&pct==null);$('bari').style.width=pct==null?'':pct+'%'}
+async function pollJob(){const j=await (await fetch('/api/job')).json();
+  if(j.name){bar(true,j.pct);if(j.msg)$('updinfo').textContent=j.msg;const pr=$('prog');pr.style.display=j.pct==null?'none':'block';$('progi').style.width=(j.pct||0)+'%';
+    if(j.name==='sendlogs'){$('upload').innerHTML=pill('warn',j.msg)}setTimeout(pollJob,500)}
+  else{bar(busy>0,null);$('prog').style.display='none';load()}}
+async function post(action,arg){busy++;bar(true,null);try{const r=await fetch('/api/action',{method:'POST',body:JSON.stringify({action,arg})});return await r.json()}finally{busy--;setTimeout(pollJob,300)}}
 async function act(a,arg){const r=await post(a,arg);toast(r.msg||'Готово');setTimeout(load,1500);return r}
 let fixList={};
-async function load(){
-  const s=await (await fetch('/api/status')).json();
+let loading=false;
+async function load(){if(loading)return;loading=true;let s;try{s=await (await fetch('/api/status')).json()}finally{loading=false}
   $('appv').textContent='v'+s.app+' (сборка '+s.appbuild+')'+(s.agent?' · агент обновлений включён':'');
   $('device').textContent=s.device||'не найдено';
+  $('gpu').innerHTML=s.gpu?'<b>'+s.gpu.replace('(TM) ','')+'</b>':'—';if(s.gpu)$('title').textContent=s.gpu.replace('(TM) ','')+' · DroidVM';
+  $('mesa').textContent=s.mesa||'—';$('fl').textContent=s.fl?'D3D '+s.fl:'—';
+  const p3=Math.min(100,s.eng3d||0),pc=Math.min(100,s.engcopy||0);$('e3d').textContent=p3+' %';$('m3d').style.width=p3+'%';$('ecopy').textContent=pc+' %';$('mcopy').style.width=pc+'%';
+  $('vram').textContent=(s.vramMB??'—')+' МБ';$('shared').textContent=(s.sharedMB??'—')+' МБ';
+  $('win').textContent=s.win||'—';$('cpu').textContent=s.cpu?s.cpu+' · '+s.cores+' потоков':'—';$('ram').textContent=s.ramGB?s.ramGB+' ГБ (свободно '+s.freeGB+')':'—';$('uptime').textContent=s.uptime||'—';
   $('status').innerHTML=s.status==='OK'?pill('ok','Работает'):s.status?pill('err',s.status+' (код '+(s.problem??'?')+')'):pill('warn','Выключено');
   $('driver').textContent=s.driver?s.driver+'  (build-'+s.driver.split('.').pop()+')':'—';
   $('mode').textContent=s.mode||'—';
@@ -103,5 +137,5 @@ async function checkUpdate(){$('updinfo').textContent='Проверяю…';try{
   $('updinfo').textContent=r.n>cur?`Доступна ${r.tag} от ${r.date} (у вас build-${cur}). Сделайте клон диска ВМ.`:`Установлена последняя сборка (${r.tag}).`;
   $('upd').disabled=!(r.n>cur)}catch(e){$('updinfo').textContent='Не удалось проверить: '+e}}
 async function doUpdate(){if(!confirm('Сделан клон диска ВМ? Установить новую сборку?'))return;await act('update')}
-load();setInterval(()=>fetch('/api/ping'),20000);
+load();setInterval(()=>fetch('/api/ping'),20000);setInterval(()=>{if(!busy)load()},5000);
 </script></body></html>

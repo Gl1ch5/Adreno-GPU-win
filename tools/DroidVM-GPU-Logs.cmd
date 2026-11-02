@@ -45,7 +45,7 @@ if (Test-Path $key) {
 } else { $L.Add('(no Bringup key)') }
 $L.Add("--- System events (display/dxgkrnl, last 2h) ---")
 Get-WinEvent -FilterHashtable @{LogName='System'; StartTime=(Get-Date).AddHours(-2)} -ErrorAction SilentlyContinue |
-  Where-Object { $_.ProviderName -match 'Display|dxgkrnl|VirtioGpu|Kernel-PnP' -or $_.Message -match 'VirtIO GPU' } |
+  Where-Object { $_.ProviderName -match 'Display|dxgkrnl|VirtioGpu|Kernel-PnP' -or $_.Message -match 'VirtIO GPU|Adreno' } |
   Select-Object -First 40 | ForEach-Object { $L.Add("$($_.TimeCreated) [$($_.ProviderName) $($_.Id)] $($_.Message -replace '\s+',' ')") }
 $L.Add("--- Display mode ---")
 Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue | ForEach-Object { $L.Add("$($_.Name): $($_.CurrentHorizontalResolution)x$($_.CurrentVerticalResolution) @ $($_.CurrentRefreshRate) Hz") }
@@ -199,7 +199,7 @@ if ($false -and $env:DVM_AUTO -eq '1') {
 }
 Write-Host ''
 Write-Host '=== RESULT ==='
-$drv = Get-CimInstance Win32_PnPSignedDriver -ErrorAction SilentlyContinue | Where-Object { $_.DeviceName -like '*VirtIO GPU*' } | Select-Object -First 1
+$drv = Get-CimInstance Win32_PnPSignedDriver -ErrorAction SilentlyContinue | Where-Object { $_.DeviceID -like 'PCI\VEN_1AF4&DEV_1050*' } | Select-Object -First 1
 if ($drv) { Write-Host ('Driver: ' + $drv.DriverVersion + '  (20.15.1.N = build-N)') } else { Write-Host 'Driver: NOT FOUND' }
 $bf = Get-ChildItem "$dir\boot_*.txt" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 $up = Select-String -Path $bf.FullName -Pattern '^upload:' -ErrorAction SilentlyContinue | Select-Object -Last 1

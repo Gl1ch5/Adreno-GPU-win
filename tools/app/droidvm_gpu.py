@@ -5,7 +5,7 @@ Windows only. Runs elevated (PyInstaller --uac-admin). No third-party deps.
 import json, os, subprocess, sys, threading, time, urllib.request, webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "1.2"
+APP_VERSION = "1.3"
 REPO = "Gl1ch5/Adreno-GPU-win"
 TASK = "DroidVM GPU logs"
 TOOL_DIR = r"C:\ProgramData\DroidVM-GPU"
@@ -14,6 +14,7 @@ FIXES = {"noubwc": "Без сжатия UBWC", "sysmem": "Без тайлово�
          "flushall": "Сброс кэшей после каждой отрисовки", "syncdraw": "Синхронизация после отрисовки"}
 NOWIN = 0x08000000  # CREATE_NO_WINDOW
 last_ping = time.time()
+JOB = {"name": None, "pct": None, "msg": ""}
 INSTALL_EXE = os.path.join(TOOL_DIR, "DroidVM-GPU.exe")
 AGENT_TASK = "DroidVM GPU agent"
 APP_URL = f"https://github.com/{REPO}/releases/download/app-latest/"
@@ -34,24 +35,46 @@ def ps(script, timeout=60):
 
 STATUS_PS = r"""
 $ErrorActionPreference='SilentlyContinue'
-$d = Get-CimInstance Win32_PnPSignedDriver | Where-Object { $_.DeviceName -like '*VirtIO GPU*' } | Select-Object -First 1
-$p = Get-PnpDevice -Class Display | Where-Object { $_.FriendlyName -like '*VirtIO GPU*' } | Select-Object -First 1
-$v = Get-CimInstance Win32_VideoController | Where-Object { $_.Name -like '*VirtIO GPU*' } | Select-Object -First 1
+$pid_ = 'PCI\VEN_1AF4&DEV_1050*'
+$d = Get-CimInstance Win32_PnPSignedDriver | Where-Object { $_.DeviceID -like $pid_ } | Select-Object -First 1
+$p = Get-PnpDevice -Class Display | Where-Object { $_.InstanceId -like $pid_ } | Select-Object -First 1
+$v = Get-CimInstance Win32_VideoController | Where-Object { $_.PNPDeviceID -like $pid_ } | Select-Object -First 1
 $mods = @(); $dwm = Get-Process dwm | Select-Object -First 1
 if ($dwm) { $mods = @($dwm.Modules | Where-Object { $_.ModuleName -match 'dx11um|vulkan_freedreno|droidvm_vulkan|d3d10warp' } | ForEach-Object { $_.ModuleName }) }
 $bf = Get-ChildItem "$env:USERPROFILE\Downloads\DroidVM-GPU-Logs\boot_*.txt" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 $up = if ($bf) { (Select-String -Path $bf.FullName -Pattern '^upload:' | Select-Object -Last 1).Line } else { $null }
 $task = Get-ScheduledTask -TaskName 'DroidVM GPU logs'
+# real GPU name / driver from the DXVK log written by our UMD
+$gpu = $null; $mesa = $null; $fl = $null
+$u = 'C:\ProgramData\DroidVM-GPU\dxvk\umd.log'
+if (Test-Path $u) {
+  $fs = New-Object IO.FileStream($u, 'Open', 'Read', 'ReadWrite,Delete'); $len = $fs.Length
+  $fs.Seek([Math]::Max(0, $len - 4MB), 'Begin') | Out-Null; $t = (New-Object IO.StreamReader($fs)).ReadToEnd(); $fs.Close()
+  $m = [regex]::Matches($t, 'Found device: ([^\(\r\n]+)\(') | Select-Object -Last 1; if ($m) { $gpu = $m.Groups[1].Value.Trim() }
+  $m = [regex]::Matches($t, 'Driver\s*:\s*([^\r\n]+)') | Select-Object -Last 1; if ($m) { $mesa = $m.Groups[1].Value.Trim() }
+  $m = [regex]::Matches($t, 'Using feature level (\S+)') | Select-Object -Last 1; if ($m) { $fl = $m.Groups[1].Value -replace 'D3D_FEATURE_LEVEL_','' -replace '_','.' }
+}
+$eng = @{}
+(Get-Counter '\GPU Engine(*)\Utilization Percentage' -ErrorAction SilentlyContinue).CounterSamples | ForEach-Object {
+  if ($_.InstanceName -match 'engtype_(\w+)') { $k = $Matches[1]; $eng[$k] = [double]$eng[$k] + $_.CookedValue } }
+$ded = (Get-Counter '\GPU Adapter Memory(*)\Dedicated Usage' -ErrorAction SilentlyContinue).CounterSamples | Measure-Object CookedValue -Sum
+$sha = (Get-Counter '\GPU Adapter Memory(*)\Shared Usage' -ErrorAction SilentlyContinue).CounterSamples | Measure-Object CookedValue -Sum
+$os = Get-CimInstance Win32_OperatingSystem; $cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
 [pscustomobject]@{
   driver = $d.DriverVersion; status = "$($p.Status)"; problem = (Get-PnpDeviceProperty -InstanceId $p.InstanceId -KeyName DEVPKEY_Device_ProblemCode).Data
-  device = $p.FriendlyName
+  device = $p.FriendlyName; gpu = $gpu; mesa = $mesa; fl = $fl
   mode = if ($v) { "$($v.CurrentHorizontalResolution)x$($v.CurrentVerticalResolution) @ $($v.CurrentRefreshRate) Hz" } else { $null }
+  eng3d = [math]::Round([double]$eng['3D'],1); engcopy = [math]::Round([double]$eng['Copy'],1)
+  vramMB = [math]::Round($ded.Sum/1MB); sharedMB = [math]::Round($sha.Sum/1MB)
   dwm = $mods; tu = [Environment]::GetEnvironmentVariable('TU_DEBUG','Machine')
   cpuwait = [Environment]::GetEnvironmentVariable('TU_WIN_SUBMIT_CPU_WAIT','Machine')
   lastlog = if ($bf) { $bf.LastWriteTime.ToString('dd.MM HH:mm:ss') } else { $null }; upload = $up
   task = [bool]$task; taskstate = "$($task.State)"
   testsign = [bool](bcdedit | Select-String -Pattern 'testsigning\s+Yes')
   tdr = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\GraphicsDrivers').TdrDelay
+  win = "$($os.Caption -replace 'Microsoft ','') $($os.Version)"; cpu = $cpu.Name; cores = $cpu.NumberOfLogicalProcessors
+  ramGB = [math]::Round($os.TotalVisibleMemorySize/1MB,1); freeGB = [math]::Round($os.FreePhysicalMemory/1MB,1)
+  uptime = ((Get-Date) - $os.LastBootUpTime).ToString('d\.hh\:mm')
 } | ConvertTo-Json -Compress
 """
 
@@ -166,8 +189,18 @@ def action(name, arg):
     if name == "sendlogs":
         out = subprocess.run(["schtasks", "/Run", "/TN", TASK], capture_output=True, text=True,
                              creationflags=NOWIN, errors="replace")
-        return {"ok": out.returncode == 0, "msg": "Сбор логов запущен, займёт 1–2 минуты" if out.returncode == 0
-                else "Сборщик не установлен: запустите батник сборщика один раз"}
+        if out.returncode != 0:
+            return {"ok": False, "msg": "Сборщик не установлен: запустите батник сборщика один раз"}
+        def wait():
+            JOB.update(name="sendlogs", pct=None, msg="Собираю и отправляю логи…")
+            t0 = time.time(); time.sleep(3)
+            while time.time() - t0 < 240:
+                st = ps("(Get-ScheduledTask -TaskName 'DroidVM GPU logs').State")
+                if st != "Running": break
+                time.sleep(2)
+            JOB.update(msg="Логи отправлены"); time.sleep(2); JOB.update(name=None)
+        threading.Thread(target=wait, daemon=True).start()
+        return {"ok": True, "msg": "Сбор логов запущен"}
     if name == "openlogs":
         os.makedirs(LOG_DIR, exist_ok=True); os.startfile(LOG_DIR); return {"ok": True, "msg": "Открыто"}
     if name == "fix":
@@ -189,11 +222,25 @@ def action(name, arg):
     if name == "checkupdate":
         return {"ok": True, **latest_build()}
     if name == "update":
-        b = latest_build()
-        exe = os.path.join(TOOL_DIR, f"Setup-diag-{b['tag']}.exe"); os.makedirs(TOOL_DIR, exist_ok=True)
-        urllib.request.urlretrieve(b["url"], exe)
-        subprocess.Popen([exe])  # visible installer: user sees progress and result
-        return {"ok": True, "msg": f"Запущен установщик {b['tag']}"}
+        def run():
+            try:
+                b = latest_build()
+                exe = os.path.join(TOOL_DIR, f"Setup-diag-{b['tag']}.exe"); os.makedirs(TOOL_DIR, exist_ok=True)
+                JOB.update(name="update", pct=0, msg=f"Скачиваю {b['tag']}…")
+                req = urllib.request.Request(b["url"], headers={"User-Agent": "droidvm-gpu-app"})
+                with urllib.request.urlopen(req, timeout=60) as r, open(exe, "wb") as f:
+                    total = int(r.headers.get("Content-Length") or 0); got = 0
+                    while chunk := r.read(256 * 1024):
+                        f.write(chunk); got += len(chunk)
+                        if total: JOB["pct"] = int(got * 100 / total)
+                JOB.update(pct=100, msg=f"Запускаю установщик {b['tag']}")
+                subprocess.Popen([exe])
+                time.sleep(3)
+            except Exception as e:
+                JOB.update(msg=f"Ошибка: {e}"); time.sleep(4)
+            JOB.update(name=None, pct=None)
+        threading.Thread(target=run, daemon=True).start()
+        return {"ok": True, "msg": "Скачивание началось"}
     if name == "reboot":
         subprocess.Popen(["shutdown", "/r", "/t", "5"], creationflags=NOWIN); return {"ok": True, "msg": "Перезагрузка через 5 с"}
     if name == "quit":
@@ -221,6 +268,8 @@ class H(BaseHTTPRequestHandler):
             st["agent"] = subprocess.run(["schtasks", "/Query", "/TN", AGENT_TASK], capture_output=True,
                                          creationflags=NOWIN).returncode == 0
             return self._send(200, json.dumps(st, ensure_ascii=False).encode(), "application/json")
+        if self.path == "/api/job":
+            return self._send(200, json.dumps(JOB, ensure_ascii=False).encode(), "application/json")
         if self.path == "/api/ping":
             return self._send(200, b"{}", "application/json")
         self._send(404, b"not found", "text/plain")

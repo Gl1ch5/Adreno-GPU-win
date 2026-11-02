@@ -99,7 +99,7 @@ HKR, "Interrupt Management\MessageSignaledInterruptProperties", MessageNumberLim
 
 [Strings]
 diskId1 = "VirtIO GPU controller Installation Disk"
-VirtioGpu.DeviceDesc = "VirtIO GPU 3D controller (DroidVM, unofficial build)"
+VirtioGpu.DeviceDesc = "Qualcomm Adreno 829 (DroidVM, unofficial build)"
 ManufacturerName = "anonymix007 / DroidVM (unofficial build)"
 
 SERVICE_DEMAND_START = 0x3

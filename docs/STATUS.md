@@ -193,3 +193,9 @@ GPU-пула, отсюда EINVAL(22). Не проверено.
   `virtual submission seqno N not consumed (host N-1)`, `wddm_bo_create: submit_ccmd_stream failed`.
   Гипотеза: TDR (2 с) сбрасывает GPU, пока хост ещё работает → DEVICE_LOST и недорисованные окна.
   Эксперимент 3 (`/fix`): TdrDelay=10, TdrDdiDelay=20, VDRM_WDDM_VIRTUAL_TIMEOUT_MS=20000.
+- 13:3x: TDR 10 с не помог; событий 4101 (TDR) в журнале нет → гипотеза TDR отпала.
+  Ошибки в mesa/umd копились с прошлых загрузок (файлы залочены) — сборщик теперь читает
+  только новые строки (смещения в C:\ProgramData\DroidVM-GPU\log-offsets.txt).
+- INF: имя устройства «Qualcomm Adreno 829 (DroidVM, unofficial build)» (со следующей сборки);
+  сборщик и программа ищут устройство по PCI\VEN_1AF4&DEV_1050.
+- Программа 1.3: прогресс-бар, имя GPU из лога DXVK, загрузка 3D/Copy, VRAM, система.
