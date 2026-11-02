@@ -5,7 +5,8 @@
 
 ## Состояние
 Ускорение работает на устройстве; см. README «Статус» и docs/STATUS.md.
-Следующие задачи: артефакты A8xx, DX12, OpenGL (Zink), ARM64EC, x86.
+Следующие задачи: артефакты в GDI/WinUI-элементах (см. STATUS «Сводка по артефактам»),
+DX12, OpenGL (Zink), DX9, ARM64EC, x86.
 
 ## Структура
 - `.github/workflows/build.yml` — Linux (llvm-mingw) собирает бинарники, Windows-раннер
@@ -16,6 +17,9 @@
   diag-варианте `--features bringup-diagnostics`).
 - `scripts/package.ps1` — пакет, подпись, `DroidVM-GPU-Setup(.exe|-diag.exe)`, Uninstall, zip.
 - `package/` — ARM64 INF (`virtio_wddm_rs.inx`), установщик, install/uninstall.ps1.
+- `tools/app/` — программа DroidVM GPU (Python + PyInstaller, UI `ui.html`), релиз `app-latest`
+  (`.github/workflows/app.yml`, проверка встроенного PowerShell).
+- `tools/DroidVM-GPU-Fix*.cmd` — запасные батники TU_DEBUG/TDR.
 - `tools/DroidVM-GPU-Logs.cmd` — сборщик логов в ВМ (задача при загрузке, логи в
   Downloads, опционально upload на сервер, включает RDP).
 - `patches/dxil-spirv/` — патч к dxil-spirv (неопубликованный коммит апстрима).
