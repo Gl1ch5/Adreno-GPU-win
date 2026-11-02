@@ -3,7 +3,7 @@ name: build
 on:
   push:
     branches: [main, master, 'claude/**']
-    paths-ignore: ['README.md']
+    paths-ignore: ['README.md', 'docs/**', 'tools/**', 'CLAUDE.md', 'AGENTS.md', 'host/**', '.github/workflows/host.yml']
   workflow_dispatch:
     inputs:
       release:
@@ -57,11 +57,38 @@ jobs:
           fi
           echo "$HOME/llvm-mingw/bin" >> "$GITHUB_PATH"
 
+      - name: Compiler caches (ccache, Rust)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.ccache
+            ~/.rustup
+            ~/.cargo
+            src/virtio-drivers-windows-rs/target
+            src/virtio-drivers-windows-rs/target-diag
+          key: cc-${{ matrix.arch }}-${{ hashFiles('versions.env', 'scripts/fetch-sources.sh', 'patches/**') }}-${{ github.run_id }}
+          restore-keys: |
+            cc-${{ matrix.arch }}-${{ hashFiles('versions.env', 'scripts/fetch-sources.sh', 'patches/**') }}-
+            cc-${{ matrix.arch }}-
+
+      - name: ccache wrappers for llvm-mingw
+        run: |
+          sudo apt-get install -y -q ccache
+          mkdir -p ~/ccbin
+          for t in ~/llvm-mingw/bin/*-w64-mingw32-clang ~/llvm-mingw/bin/*-w64-mingw32-clang++; do
+            printf '#!/bin/sh\nexec ccache %s "$@"\n' "$t" > ~/ccbin/$(basename "$t"); chmod +x ~/ccbin/$(basename "$t")
+          done
+          echo "$HOME/ccbin" >> "$GITHUB_PATH"
+          echo "CCACHE_DIR=$HOME/.ccache" >> "$GITHUB_ENV"
+          echo "CCACHE_MAXSIZE=3G" >> "$GITHUB_ENV"
+          echo "CCACHE_BASEDIR=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+          echo "CCACHE_SLOPPINESS=time_macros,include_file_mtime,include_file_ctime" >> "$GITHUB_ENV"
+
       - name: Rust nightly + cbindgen
         if: matrix.arch == 'arm64'
         run: |
           rustup toolchain install nightly --profile minimal -c rust-src
-          cargo install cbindgen --locked -q
+          command -v cbindgen || cargo install cbindgen --locked -q
 
       - name: WDK / SDK headers from NuGet
         run: scripts/setup-winsdk.sh winsdk
@@ -70,7 +97,9 @@ jobs:
         run: scripts/fetch-sources.sh
 
       - name: Build
-        run: ARCH=${{ matrix.arch }} scripts/build.sh
+        run: |
+          ARCH=${{ matrix.arch }} scripts/build.sh
+          ccache -s || true
 
       - uses: actions/upload-artifact@v4
         with:
