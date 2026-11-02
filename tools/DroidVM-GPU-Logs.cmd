@@ -22,6 +22,7 @@ $collect = @'
 # Runs at every boot (scheduled task). Dumps GPU driver diagnostics, then
 # clears them so every file describes exactly one boot.
 $dir = '__LOGDIR__'
+$upTok = '__UPTOKEN__'
 $key = 'HKLM:\SYSTEM\CurrentControlSet\Services\VirtioGpu\Parameters\Bringup'
 $ts  = Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'
 $out = Join-Path $dir "boot_$ts.txt"
@@ -48,11 +49,21 @@ Get-WinEvent -FilterHashtable @{LogName='System'; StartTime=(Get-Date).AddHours(
   Select-Object -First 40 | ForEach-Object { $L.Add("$($_.TimeCreated) [$($_.ProviderName) $($_.Id)] $($_.Message -replace '\s+',' ')") }
 $L | Set-Content -Encoding UTF8 $out
 Copy-Item $out (Join-Path $dir 'LATEST.txt') -Force
+# optional: send to the log server (only in the build downloaded from the server)
+if ($upTok -notlike '__UPLOAD*') {
+  try {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    Invoke-RestMethod -Uri 'https://grzxk.ru:8877/upload' -Method Post -TimeoutSec 30 `
+      -Headers @{ 'X-Token' = $upTok; 'X-Name' = "$env:COMPUTERNAME-boot_$ts.txt" } `
+      -ContentType 'text/plain; charset=utf-8' -Body ([IO.File]::ReadAllBytes($out)) | Out-Null
+    Add-Content -Encoding UTF8 $out 'upload: ok'
+  } catch { Add-Content -Encoding UTF8 $out "upload: FAILED $_" }
+}
 # reset diagnostics for the next boot (key must exist for the driver)
 Remove-Item $key -Force -ErrorAction SilentlyContinue
 New-Item $key -Force | Out-Null
 '@
-Set-Content -Encoding UTF8 (Join-Path $tool 'collect.ps1') $collect.Replace('__LOGDIR__', $dir)
+Set-Content -Encoding UTF8 (Join-Path $tool 'collect.ps1') $collect.Replace('__LOGDIR__', $dir).Replace('__UPTOKEN__', '__UPLOAD_TOKEN__')
 
 # 1) diagnostics key (diag driver only writes into an existing key)
 New-Item 'HKLM:\SYSTEM\CurrentControlSet\Services\VirtioGpu\Parameters\Bringup' -Force | Out-Null
