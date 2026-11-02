@@ -51,7 +51,8 @@
 - `https://grzxk.ru:8877/app` → релиз `app-latest` (`DroidVM-GPU.exe` + `version.txt` = run_number).
   Python stdlib + PyInstaller (`--uac-admin`), UI — `ui.html` в Edge `--app`.
 - Первый запуск копирует себя в `C:\ProgramData\DroidVM-GPU\DroidVM-GPU.exe` и регистрирует
-  задачу «DroidVM GPU agent» (ONLOGON, HIGHEST, `--agent`). Агент каждые 3 ч обновляет exe
+  задачу «DroidVM GPU agent» (ONLOGON, HIGHEST, `--agent`). Агент каждую минуту обновляет exe
   (переименование .old/.new) и открывает окно, если вышла новая сборка драйвера.
   Драйвер сам не ставит — пользователь жмёт «Установить» (видимый установщик).
 - Батники `/fix`, `/fixoff` — запасной вариант; основное — переключатели в программе.
+- Сервер: `/latest` — кэш (90 с) последнего build-N из GitHub API для агента.

@@ -5,7 +5,7 @@ Windows only. Runs elevated (PyInstaller --uac-admin). No third-party deps.
 import json, os, subprocess, sys, threading, time, urllib.request, webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "1.3"
+APP_VERSION = "1.4"
 REPO = "Gl1ch5/Adreno-GPU-win"
 TASK = "DroidVM GPU logs"
 TOOL_DIR = r"C:\ProgramData\DroidVM-GPU"
@@ -18,7 +18,7 @@ JOB = {"name": None, "pct": None, "msg": ""}
 INSTALL_EXE = os.path.join(TOOL_DIR, "DroidVM-GPU.exe")
 AGENT_TASK = "DroidVM GPU agent"
 APP_URL = f"https://github.com/{REPO}/releases/download/app-latest/"
-CHECK_EVERY = 3 * 3600
+CHECK_EVERY = 60  # seconds; app: version.txt (no API limit), driver: server cache
 
 
 def res(name):
@@ -169,9 +169,14 @@ def agent():
 
 
 def latest_build():
-    req = urllib.request.Request(f"https://api.github.com/repos/{REPO}/releases?per_page=100",
-                                 headers={"User-Agent": "droidvm-gpu-app"})
-    rel = json.load(urllib.request.urlopen(req, timeout=20))
+    # server caches the GitHub API answer (GitHub allows 60 unauthenticated calls/hour)
+    try:
+        b = json.loads(http_get("https://grzxk.ru:8877/latest", timeout=15))
+        if b.get("tag"):
+            return b
+    except Exception:
+        pass
+    rel = json.loads(http_get(f"https://api.github.com/repos/{REPO}/releases?per_page=100", timeout=20))
     rel = [r for r in rel if r["tag_name"].startswith("build-")]
     rel.sort(key=lambda r: r["created_at"], reverse=True)
     r = rel[0]
