@@ -103,7 +103,7 @@ cp "$D11/include/virtio_wddm_uapi.h" "$D11"/include/winddk/*.h "$WDDM_INC/"
   -Dllvm=disabled -Dopengl=false -Dgles1=disabled -Dgles2=disabled -Degl=disabled -Dglx=disabled \
   -Dzstd=disabled -Dexpat=disabled -Dvalgrind=disabled -Dbuild-tests=false -Dmicrosoft-clc=disabled \
   -Dc_args="-I$WDDM_INC" -Dcpp_args="-I$WDDM_INC" \
-  -Ddefault_library=static -Dc_link_args=-static -Dcpp_link_args=-static
+  -Ddefault_library=static -Dc_link_args=-static,-lwinpthread -Dcpp_link_args=-static,-lwinpthread
 ninja -C "$MB" -j "$JOBS" src/freedreno/vulkan/libvulkan_freedreno.dll
 cp "$MB/src/freedreno/vulkan/libvulkan_freedreno.dll" "$OUT/vulkan_freedreno.dll"
 $PREFIX-strip --strip-debug --strip-unneeded "$OUT/vulkan_freedreno.dll"
