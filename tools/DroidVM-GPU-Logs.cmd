@@ -133,6 +133,7 @@ foreach ($sub in 'dxvk','dumps') { $p = "C:\ProgramData\DroidVM-GPU\$sub"; New-I
 [Environment]::SetEnvironmentVariable('MESA_LOG_FILE', 'C:\ProgramData\DroidVM-GPU\dxvk\mesa.log', 'Machine')
 [Environment]::SetEnvironmentVariable('TU_DEBUG', 'startup', 'Machine')
 [Environment]::SetEnvironmentVariable('MESA_LOG_LEVEL', 'debug', 'Machine')
+[Environment]::SetEnvironmentVariable('VDRM_WDDM_DEBUG', '1', 'Machine')
 [Environment]::SetEnvironmentVariable('MESA_DEBUG', '1', 'Machine')
 [Environment]::SetEnvironmentVariable('DXVK_LOG_PATH', 'C:\ProgramData\DroidVM-GPU\dxvk', 'Machine')
 $wer = 'HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\dwm.exe'

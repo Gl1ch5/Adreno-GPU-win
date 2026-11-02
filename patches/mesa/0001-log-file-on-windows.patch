@@ -34,3 +34,34 @@ index b594a8f..1a89a2a 100644
  #if !DETECT_OS_WINDOWS
     if (__normal_user()) {
        FILE *fp = NULL;
+diff --git a/src/virtio/vdrm/vdrm_wddm.c b/src/virtio/vdrm/vdrm_wddm.c
+index 8605b0d..c78bb0e 100644
+--- a/src/virtio/vdrm/vdrm_wddm.c
++++ b/src/virtio/vdrm/vdrm_wddm.c
+@@ -89,7 +89,7 @@
+ DEBUG_GET_ONCE_BOOL_OPTION(vdrm_wddm_debug, "VDRM_WDDM_DEBUG", false)
+ #define WDDM_DEBUG(...) do { \
+    if (debug_get_option_vdrm_wddm_debug()) \
+-      fprintf(stderr, "vdrm-wddm: " __VA_ARGS__); \
++      mesa_logi("vdrm-wddm: " __VA_ARGS__); \
+ } while (0)
+ 
+ /* ------------------------------------------------------------------ */
+@@ -537,6 +537,8 @@ context_init(struct vdrm_wddm *w)
+    strncpy((char *)ctx.debug_name, "vdrm-turnip-win32", sizeof(ctx.debug_name) - 1);
+ 
+    status = wddm_escape(w, w->h_device, 0, &ctx, sizeof(ctx));
++   if (!NT_SUCCESS(status))
++      mesa_loge("vdrm-wddm: ContextInit escape failed: 0x%08lx", (unsigned long)status);
+    return NT_SUCCESS(status);
+ }
+ 
+@@ -1900,7 +1902,7 @@ vdrm_wddm_connect(int fd, uint32_t context_type)
+ 
+ out:
+    if (!ok) {
+-      WDDM_DEBUG("connect failed at %s\n", stage);
++      mesa_loge("vdrm-wddm: connect failed at %s", stage);
+       /* 统一走 wddm_close：它负责回收表里的分配（含可能已建出来的 ring）、
+        * 销毁 table_lock、关句柄、卸 gdi32。 */
+       wddm_close(&w->base);
