@@ -1,0 +1,74 @@
+diff --git a/gpu-wddm/src/adapter.rs b/gpu-wddm/src/adapter.rs
+index aa2ebda..a8606e4 100644
+--- a/gpu-wddm/src/adapter.rs
++++ b/gpu-wddm/src/adapter.rs
+@@ -1677,8 +1677,8 @@ impl Adapter {
+                                 reserved: 0,
+                                 planes: [crate::virgl::VirglResourceLayoutPlane {
+                                     offset: 0,
+-                                    stride: info._3d.width.saturating_mul(4),
+-                                    size: info._3d.width.saturating_mul(info._3d.height).saturating_mul(4),
++                                    stride: crate::droidvm_pitch(info._3d.width),
++                                    size: crate::droidvm_pitch(info._3d.width).saturating_mul(info._3d.height),
+                                 }; 4],
+                             })
+                         }
+diff --git a/gpu-wddm/src/device.rs b/gpu-wddm/src/device.rs
+index eafedf1..f83cfa9 100644
+--- a/gpu-wddm/src/device.rs
++++ b/gpu-wddm/src/device.rs
+@@ -392,7 +392,7 @@ impl Device {
+                     // (UMD OpenResource); its stride is then the one to honor.
+                     let (stride, modifier) = match *layout.read() {
+                         Some(layout) => (layout.planes[0].stride, layout.modifier),
+-                        None => (*width * 4, 0),
++                        None => (crate::droidvm_pitch(*width), 0),
+                     };
+                     diag::set(Slot::PresentLastDstLayoutStride, if layout.read().is_some() { stride } else { 0 });
+                     if !flags.contains(VirglFlags::MAP_COHERENT) {
+diff --git a/gpu-wddm/src/lib.rs b/gpu-wddm/src/lib.rs
+index 6c0ef60..dc350ec 100644
+--- a/gpu-wddm/src/lib.rs
++++ b/gpu-wddm/src/lib.rs
+@@ -910,8 +910,12 @@ unsafe extern "C" fn get_standard_allocation_driver_data(adapter: HANDLE, standa
+             let h = surface_data.Height;
+             let format = VirglFormat::from(surface_data.Format);
+             /* All supported formats are 32-bit for now */
+-            let size = (w as u64) * (h as u64) * 4;
+-            surface_data.Pitch = w * 4;
++            // DroidVM: rows padded to 256 bytes. GPU consumers (triton OpenResource,
++            // Turnip linear import) read these surfaces with align(w*4, 256); a packed
++            // GDI pitch skewed every row of small surfaces (caption buttons, tray, icons).
++            let pitch = crate::droidvm_pitch(w);
++            let size = (pitch as u64) * (h as u64);
++            surface_data.Pitch = pitch;
+             let flags = VirglFlags::MAP_COHERENT;
+             //warn!("{}: {:?} / {:?}", function!(), surface_data, format);
+ 
+@@ -924,8 +928,12 @@ unsafe extern "C" fn get_standard_allocation_driver_data(adapter: HANDLE, standa
+             let w = surface_data.Width;
+             let h = surface_data.Height;
+             let format = VirglFormat(VIRGL_FORMAT_B8G8R8X8_UNORM);
+-            let size = (w as u64) * (h as u64) * 4;
+-            surface_data.Pitch = w * 4;
++            // DroidVM: rows padded to 256 bytes. GPU consumers (triton OpenResource,
++            // Turnip linear import) read these surfaces with align(w*4, 256); a packed
++            // GDI pitch skewed every row of small surfaces (caption buttons, tray, icons).
++            let pitch = crate::droidvm_pitch(w);
++            let size = (pitch as u64) * (h as u64);
++            surface_data.Pitch = pitch;
+             let flags = VirglFlags::MAP_COHERENT;
+             //warn!("{}: {:?} / {:?}", function!(), surface_data, format);
+ 
+@@ -2089,3 +2097,11 @@ fn panic(info: &PanicInfo) -> ! {
+ 
+     unsafe { KeBugCheck(0xDEADDEAD); }
+ }
++
++
++/// Row pitch shared by the KMD (GDI shadow/staging surfaces, local present copy)
++/// and the UMD consumers: 32-bit pixels, rows aligned to 256 bytes.
++#[inline]
++pub fn droidvm_pitch(width: u32) -> u32 {
++    width.saturating_mul(4).saturating_add(255) & !255
++}
