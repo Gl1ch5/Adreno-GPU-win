@@ -64,6 +64,7 @@ svg{flex:none}.muted{color:var(--sub);font-size:12px;margin-top:8px}
 <div class="btns"><button class="primary" onclick="act('sendlogs')"><svg width="16" height="16"><use href="#i-send"/></svg>Отправить логи сейчас</button>
 <button onclick="act('openlogs')"><svg width="16" height="16"><use href="#i-folder"/></svg>Открыть папку</button></div></section>
 <section class="card"><h2><svg width="22" height="22"><use href="#i-wrench"/></svg>Исправления Turnip</h2>
+<label class="tg"><span><b>Длинные таймауты GPU</b> <span class="muted">(TDR 10 с — против сбросов и артефактов)</span></span><span class="sw"><input type="checkbox" id="tdr"><i></i></span></label>
 <div id="fixes"></div>
 <label class="tg"><span>Ждать GPU перед отправкой (CPU wait)</span><span class="sw"><input type="checkbox" id="cpuwait"><i></i></span></label>
 <div class="btns"><button class="primary" onclick="saveFixes()"><svg width="16" height="16"><use href="#i-save"/></svg>Сохранить</button>
@@ -93,10 +94,10 @@ async function load(){
   $('upload').innerHTML=!s.upload?'—':/ok/.test(s.upload)?pill('ok','Отправлен'):pill('err','Ошибка');
   fixList=s.fixes||{};const on=(s.tu||'').split(',');
   $('fixes').innerHTML=Object.entries(fixList).map(([k,v])=>`<label class="tg"><span>${v} <span class="muted">(${k})</span></span><span class="sw"><input type="checkbox" data-fix="${k}" ${on.includes(k)?'checked':''}><i></i></span></label>`).join('');
-  $('cpuwait').checked=s.cpuwait==='1';
+  $('cpuwait').checked=s.cpuwait==='1';$('tdr').checked=!!s.tdr;
 }
 async function saveFixes(){const f=[...document.querySelectorAll('[data-fix]')].filter(x=>x.checked).map(x=>x.dataset.fix);
-  await post('cpuwait',$('cpuwait').checked);await act('fix',f)}
+  await post('cpuwait',$('cpuwait').checked);await post('tdr',$('tdr').checked);await act('fix',f)}
 async function checkUpdate(){$('updinfo').textContent='Проверяю…';try{const r=await post('checkupdate');
   const cur=parseInt((($('driver').textContent.match(/build-(\d+)/)||[])[1])||0);
   $('updinfo').textContent=r.n>cur?`Доступна ${r.tag} от ${r.date} (у вас build-${cur}). Сделайте клон диска ВМ.`:`Установлена последняя сборка (${r.tag}).`;

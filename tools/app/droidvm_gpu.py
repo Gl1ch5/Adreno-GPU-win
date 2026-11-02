@@ -5,7 +5,7 @@ Windows only. Runs elevated (PyInstaller --uac-admin). No third-party deps.
 import json, os, subprocess, sys, threading, time, urllib.request, webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "1.0"
+APP_VERSION = "1.1"
 REPO = "Gl1ch5/Adreno-GPU-win"
 TASK = "DroidVM GPU logs"
 TOOL_DIR = r"C:\ProgramData\DroidVM-GPU"
@@ -47,6 +47,7 @@ $task = Get-ScheduledTask -TaskName 'DroidVM GPU logs'
   lastlog = if ($bf) { $bf.LastWriteTime.ToString('dd.MM HH:mm:ss') } else { $null }; upload = $up
   task = [bool]$task; taskstate = "$($task.State)"
   testsign = [bool](bcdedit | Select-String -Pattern 'testsigning\s+Yes')
+  tdr = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\GraphicsDrivers').TdrDelay
 } | ConvertTo-Json -Compress
 """
 
@@ -82,6 +83,16 @@ def action(name, arg):
         v = "1" if arg else ""
         ps(f"[Environment]::SetEnvironmentVariable('TU_WIN_SUBMIT_CPU_WAIT',{('$null' if not v else repr(v))},'Machine')")
         return {"ok": True, "msg": "Сохранено. Нужна перезагрузка"}
+    if name == "tdr":
+        key = r"HKLM:\SYSTEM\CurrentControlSet\Control\GraphicsDrivers"
+        env = r"HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment"
+        if arg:
+            ps(f"Set-ItemProperty '{key}' TdrDelay 10 -Type DWord; Set-ItemProperty '{key}' TdrDdiDelay 20 -Type DWord; "
+               "[Environment]::SetEnvironmentVariable('VDRM_WDDM_VIRTUAL_TIMEOUT_MS','20000','Machine')")
+        else:
+            ps(f"Remove-ItemProperty '{key}' TdrDelay,TdrDdiDelay -ErrorAction SilentlyContinue; "
+               f"Remove-ItemProperty '{env}' VDRM_WDDM_VIRTUAL_TIMEOUT_MS -ErrorAction SilentlyContinue")
+        return {"ok": True, "msg": "Таймауты " + ("увеличены" if arg else "по умолчанию") + ". Нужна перезагрузка"}
     if name == "checkupdate":
         return {"ok": True, **latest_build()}
     if name == "update":
