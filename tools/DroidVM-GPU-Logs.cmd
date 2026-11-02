@@ -181,7 +181,8 @@ Write-Host ''
 Write-Host '=== RESULT ==='
 $drv = Get-CimInstance Win32_PnPSignedDriver -ErrorAction SilentlyContinue | Where-Object { $_.DeviceName -like '*VirtIO GPU*' } | Select-Object -First 1
 if ($drv) { Write-Host ('Driver: ' + $drv.DriverVersion + '  (20.15.1.N = build-N)') } else { Write-Host 'Driver: NOT FOUND' }
-$up = Select-String -Path "$dir\LATEST.txt" -Pattern '^upload:' -ErrorAction SilentlyContinue | Select-Object -Last 1
+$bf = Get-ChildItem "$dir\boot_*.txt" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+$up = Select-String -Path $bf.FullName -Pattern '^upload:' -ErrorAction SilentlyContinue | Select-Object -Last 1
 if ($up) { Write-Host ('Server: ' + $up.Line) } else { Write-Host 'Server: no upload line' }
 if (Test-Path 'C:\ProgramData\DroidVM-GPU\dxvk\mesa.log') { Write-Host 'Turnip log: yes' } else { Write-Host 'Turnip log: not yet (appears after a reboot with display device ON)' }
 Write-Host 'Auto log at every boot: ON.  Driver auto-install: OFF.'
