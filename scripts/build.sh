@@ -23,7 +23,8 @@ case $ARCH in
 esac
 CROSSFILE=$ROOT/cross/$CROSS.ini
 SDKINC=$WINSDK/sdk/Include/$SDKVER
-MINGWINC=$(dirname "$(command -v $PREFIX-clang)")/../generic-w64-mingw32/include
+# resolve via llvm-mingw clang itself (PATH may hold ccache wrappers)
+MINGWINC=$($PREFIX-clang -print-resource-dir | sed "s#/lib/clang/.*##")/generic-w64-mingw32/include
 
 step() { echo "::group::$ARCH: $*"; }
 endstep() { echo "::endgroup::"; }
