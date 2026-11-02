@@ -72,9 +72,10 @@ AddReg = VirtioGpu_Service_AddReg
 ; bring-up diagnostics (diag build) only open this key, they do not create it
 HKR, "Parameters\Bringup",, 0x00000010
 ; DroidVM crosvm without virtio-gpu feature 7: DRM blob pool = last 64 MiB of 3 GiB RAM (0x13c000000)
-HKR, "Parameters", PoolBaseLow,  0x00010001, 0x3c000000
-HKR, "Parameters", PoolBaseHigh, 0x00010001, 0x00000001
-HKR, "Parameters", PoolSizeMiB,  0x00010001, 64
+; 0x00010003 = DWORD + NOCLOBBER: reinstall keeps values set by the app
+HKR, "Parameters", PoolBaseLow,  0x00010003, 0x3c000000
+HKR, "Parameters", PoolBaseHigh, 0x00010003, 0x00000001
+HKR, "Parameters", PoolSizeMiB,  0x00010003, 64
 
 [VirtioGpu_EventLog_Inst]
 AddReg = VirtioGpu_EventLog_Inst.AddReg
