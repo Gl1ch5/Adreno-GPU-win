@@ -189,3 +189,7 @@ GPU-пула, отсюда EINVAL(22). Не проверено.
   `DxvkCommandPool: Failed to begin command buffer`, dx12um `vkd3d_create_device failed`,
   `Triton: tritonResourceMap: 0x887b0001`, `pfnDeallocateCb failed: 0x80070057`.
   Режим 1920x1080@60. Следующий шаг: хостовой лог KGSL (fault/ERROR) в момент артефактов.
+- 12:51: mesa.log: `wddm submit failed: status=0xc00002b6` (STATUS_DEVICE_REMOVED),
+  `virtual submission seqno N not consumed (host N-1)`, `wddm_bo_create: submit_ccmd_stream failed`.
+  Гипотеза: TDR (2 с) сбрасывает GPU, пока хост ещё работает → DEVICE_LOST и недорисованные окна.
+  Эксперимент 3 (`/fix`): TdrDelay=10, TdrDdiDelay=20, VDRM_WDDM_VIRTUAL_TIMEOUT_MS=20000.
