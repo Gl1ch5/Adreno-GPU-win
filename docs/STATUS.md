@@ -64,3 +64,14 @@ GPU-пула, отсюда EINVAL(22). Не проверено.
 ## Не сделано
 - ARM64EC (x64-игры) и x86 (32-бит) — заготовки в cross/*.ini и build.sh.
 - Проверка на устройстве: графика не заработала ни в одном режиме.
+
+## Результат diag (Pseudo Unprotected, oem11 = build-5 diag), 2026-11-02 ~05:50
+- Инициализация OK: StartDeviceStatus 0, CreateDevice 0x83, submit/fence 20/20, IRQ/DPC без потерь.
+- Primary/shadow: два 3D virgl-ресурса (ResId 2,3; 0x9db страниц ≈ 10 МБ, Bind 0x4008a,
+  VirglFlags 4) → AttachBuild0/1 с MDL → хост отвечает `ResourceAttachBacking ComponentError(22)`.
+- Present: RtPresentLocalIneligibleNotGuestBlob = 20/20 (src kind 2 = _3D), локальное копирование
+  не используется → чёрный экран.
+- Гипотеза: в режиме DRM to KGSL хост не умеет 3D virgl-ресурсы; в логе каждый раз
+  `linker: /vendor/lib64/hw/vulkan.adreno.so ... is not accessible for the namespace` — crosvm
+  не может загрузить системный Vulkan Adreno. Это сторона DroidVM, не сборки.
+- Предложено попробовать: Graphics API = Vulkan; GPU-blit = Vulkan (System).
