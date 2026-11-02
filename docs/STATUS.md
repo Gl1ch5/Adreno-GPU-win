@@ -75,3 +75,13 @@ GPU-пула, отсюда EINVAL(22). Не проверено.
   `linker: /vendor/lib64/hw/vulkan.adreno.so ... is not accessible for the namespace` — crosvm
   не может загрузить системный Vulkan Adreno. Это сторона DroidVM, не сборки.
 - Предложено попробовать: Graphics API = Vulkan; GPU-blit = Vulkan (System).
+
+## Сервер логов (MCP "Server", grzxk.ru / 64.188.66.249)
+- Сервис `droidvm-logs` (systemd, DynamicUser): `/opt/droidvm-logs/server.py`, слушает 127.0.0.1:8876.
+- nginx: `/etc/nginx/conf.d/droidvm-logs.conf` — `https://grzxk.ru:8877` (сертификат grzxk.ru). Другие сайты не трогались.
+- Токен: `/opt/droidvm-logs/token` (в репозиторий НЕ коммитить).
+- Скачать настроенный сборщик: `https://grzxk.ru:8877/setup/<token>` (подставляет токен в tools/DroidVM-GPU-Logs.cmd,
+  копия шаблона в `/opt/droidvm-logs/DroidVM-GPU-Logs.cmd`, обновлять после правок).
+- Логи: `/var/lib/droidvm-logs/` (читать через MCP run_root: `ls -t /var/lib/droidvm-logs | head`).
+- В VM: задача планировщика "DroidVM GPU logs" (SYSTEM, через 90 с после загрузки) → `C:\ProgramData\DroidVM-GPU\collect.ps1`,
+  копии в `%USERPROFILE%\Downloads\DroidVM-GPU-Logs\` (LATEST.txt), также включает RDP и GPU для RDP.
