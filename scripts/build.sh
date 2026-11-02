@@ -62,7 +62,8 @@ UAPI=$(dirname "$OUT")/arm64/include/virtio_wddm_uapi.h
 step "dx11um_virtio.dll (DXVK)"
 D11=$SRC/virtio-d3d11
 ddk_headers "$D11/include/winddk" >/dev/null
-cp "$UAPI" "$D11/include/virtio_wddm_uapi.h"
+# NOTE: the published KMD uapi (cbindgen) lags behind the header checked in
+# to virtio-d3d11; user-mode parts are built against the d3d11 copy.
 LTO=-flto; [ "$ARCH" = x86 ] && LTO=
 make -C "$D11" -j"$JOBS" PREFIX=$PREFIX BUILD_DIR=build-$TAG LTO=$LTO
 cp "$D11/build-$TAG/dist/dx11um_virtio.dll" "$OUT/"
@@ -90,7 +91,7 @@ endstep
 step "vulkan_freedreno.dll (Turnip)"
 M=$SRC/mesa; MB=$M/build-$TAG
 WDDM_INC=$OUT/wddm-inc; mkdir -p "$WDDM_INC"
-cp "$UAPI" "$D11"/include/winddk/*.h "$WDDM_INC/"
+cp "$D11/include/virtio_wddm_uapi.h" "$D11"/include/winddk/*.h "$WDDM_INC/"
 [ -f "$MB/build.ninja" ] || meson setup "$MB" "$M" --cross-file "$CROSSFILE" --buildtype release \
   -Dvulkan-drivers=freedreno -Dfreedreno-kmds=virtio -Dgallium-drivers= -Dplatforms=windows \
   -Dllvm=disabled -Dopengl=false -Dgles1=disabled -Dgles2=disabled -Degl=disabled -Dglx=disabled \
