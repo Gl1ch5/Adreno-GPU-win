@@ -274,3 +274,12 @@ allocations) в triton UMD (`tritonResource.c` ~548 — написан под Me
    mapping) → устаревшие данные. Проверить mapping как write-combined/uncached в KMD.
 4. Частичные обновления (dirty rects) при present: копируется только часть, остальное мусор.
 5. Пул мал/фрагментирован: при 256 МБ стало лучше — проверить 512 МБ.
+
+### 16:34 — первый лог с новым сборщиком (build-39)
+- Импортирован только один ресурс: `import layout ok 1024x768: rowPitch=4096`. Мелкие GDI-поверхности
+  НЕ идут через импорт → гипотеза про pitch импорта отпадает (патч 0002 безвреден, но не причина).
+- Мелкие элементы создаются как STAGING-текстуры (`usage 3, map 3`, напр. 18x18 fmt 87), CPU пишет
+  через Map, затем копия на GPU. `tritonResourceMap: 0x887b0001` = WASSTILLDRAWING (норма для DO_NOT_WAIT).
+- Главный подозреваемый теперь — гипотеза 3 (кэш CPU / coherency при Map staging) и путь
+  CopySubresourceRegion staging→texture (pitch staging-буфера DXVK vs то, что пишет GDI/dwm).
+- Ещё: `pfnDeallocateCb failed: 0x80070057` — возможен двойной free; проверить.
