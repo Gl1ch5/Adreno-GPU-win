@@ -66,6 +66,11 @@ ServiceType = %SERVICE_KERNEL_DRIVER%
 StartType = %SERVICE_DEMAND_START%
 ErrorControl = %SERVICE_ERROR_IGNORE%
 ServiceBinary = %13%\virtio_wddm_rs.sys
+AddReg = VirtioGpu_Service_AddReg
+
+[VirtioGpu_Service_AddReg]
+; bring-up diagnostics (diag build) only open this key, they do not create it
+HKR, "Parameters\Bringup",, 0x00000010
 
 [VirtioGpu_EventLog_Inst]
 AddReg = VirtioGpu_EventLog_Inst.AddReg
