@@ -103,7 +103,7 @@ cp "$D11/include/virtio_wddm_uapi.h" "$D11"/include/winddk/*.h "$WDDM_INC/"
   -Dllvm=disabled -Dopengl=false -Dgles1=disabled -Dgles2=disabled -Degl=disabled -Dglx=disabled \
   -Dzstd=disabled -Dexpat=disabled -Dvalgrind=disabled -Dbuild-tests=false -Dmicrosoft-clc=disabled \
   -Dc_args="-I$WDDM_INC" -Dcpp_args="-I$WDDM_INC" \
-  -Dc_link_args=-lwinpthread -Dcpp_link_args=-lwinpthread
+  -Ddefault_library=static -Dc_link_args=-static -Dcpp_link_args=-static
 ninja -C "$MB" -j "$JOBS" src/freedreno/vulkan/libvulkan_freedreno.dll
 cp "$MB/src/freedreno/vulkan/libvulkan_freedreno.dll" "$OUT/vulkan_freedreno.dll"
 $PREFIX-strip --strip-debug --strip-unneeded "$OUT/vulkan_freedreno.dll"
@@ -133,4 +133,10 @@ if [ "$ARCH" != arm64 ]; then
   done
 fi
 rm -rf "$OUT/wddm-inc"
+# Every shipped DLL may only import Windows system DLLs: the driver store has no
+# room for mingw runtimes (a missing libz-1.dll silently broke Turnip in build-5).
+for f in "$OUT"/*.dll; do
+  bad=$(llvm-objdump -p "$f" | sed -n 's/^ *DLL Name: //p' | grep -viE '^(api-ms-win-.*|ext-ms-win-.*|kernel32|kernelbase|user32|gdi32|advapi32|version|cfgmgr32|ole32|oleaut32|shell32|shlwapi|ws2_32|dxgi|d3d11|d3d12|dxcore|gdi32full|ntdll|bcrypt|setupapi|winmm|dbghelp|msvcrt|ucrtbase)\.dll$' || true)
+  [ -z "$bad" ] || { echo "ERROR: $f imports non-system DLLs: $bad"; exit 1; }
+done
 ls -la "$OUT"
