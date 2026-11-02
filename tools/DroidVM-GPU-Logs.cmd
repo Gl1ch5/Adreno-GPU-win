@@ -39,7 +39,7 @@ $L.Add(((pnputil /enum-devices /class Display /drivers) -join "`n"))
 $L.Add("--- IPv4 ---")
 Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object IPAddress -ne '127.0.0.1' | ForEach-Object { $L.Add("$($_.InterfaceAlias): $($_.IPAddress)") }
 $L.Add("--- Turnip env (machine) ---")
-$L.Add("TU_DEBUG=" + [Environment]::GetEnvironmentVariable('TU_DEBUG','Machine') + "  CPU_WAIT=" + [Environment]::GetEnvironmentVariable('TU_WIN_SUBMIT_CPU_WAIT','Machine') + "  TdrDelay=" + (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\GraphicsDrivers' -ErrorAction SilentlyContinue).TdrDelay)
+$L.Add("TU_DEBUG=" + [Environment]::GetEnvironmentVariable('TU_DEBUG','Machine') + "  CPU_WAIT=" + [Environment]::GetEnvironmentVariable('TU_WIN_SUBMIT_CPU_WAIT','Machine') + "  VERBOSE=" + [Environment]::GetEnvironmentVariable('VIRTIO_WDDM_VERBOSE','Machine') + "  TdrDelay=" + (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\GraphicsDrivers' -ErrorAction SilentlyContinue).TdrDelay)
 $L.Add("--- Bringup registry (written by diag driver) ---")
 if (Test-Path $key) {
   $p = Get-ItemProperty $key

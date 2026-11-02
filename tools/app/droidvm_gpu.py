@@ -5,7 +5,7 @@ Windows only. Runs elevated (PyInstaller --uac-admin). No third-party deps.
 import json, os, subprocess, sys, threading, time, urllib.request, webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "1.11"
+APP_VERSION = "1.12"
 REPO = "Gl1ch5/Adreno-GPU-win"
 TASK = "DroidVM GPU logs"
 TOOL_DIR = r"C:\ProgramData\DroidVM-GPU"
@@ -329,7 +329,7 @@ class H(BaseHTTPRequestHandler):
             return self._send(200, open(res("ui.html"), "rb").read(), "text/html; charset=utf-8")
         if self.path == "/api/status":
             st = dict(CACHE["static"]); st.update(CACHE["live"])
-            st["loaded"] = CACHE["static_t"] > 0
+            st["loaded"] = CACHE["static_t"] > 0; st["static_t"] = CACHE["static_t"]
             st["app"] = APP_VERSION; st["appbuild"] = app_build(); st["fixes"] = FIXES
             st["tuactive"] = ACTIVE_TU
             st["agent"] = AGENT_OK[0]
