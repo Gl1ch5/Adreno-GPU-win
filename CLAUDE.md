@@ -40,3 +40,9 @@
 - Память ~3 GiB (в логе хоста `3002 MB`, пул `0x13c000000..0x140000000`): адрес пула
   в INF рассчитан на это. В режиме Vulkan Windows видит только capset venus.
 - На хосте стоит своя libvirglrenderer (host-3), бэкап `.orig` рядом.
+
+## Батники исправлений
+- `https://grzxk.ru:8877/fix` → `tools/DroidVM-GPU-Fix.cmd`: ставит `TU_DEBUG` (сейчас
+  `startup,noubwc,sysmem`) и перезагружает. `/fixoff` → `DroidVM-GPU-Fix-Off.cmd`
+  (`TU_DEBUG=startup`). На сервере файлы в `/opt/droidvm-logs/` (CRLF), маршруты в server.py.
+- Сборщик логов `TU_DEBUG` не перезаписывает, если он уже задан.
