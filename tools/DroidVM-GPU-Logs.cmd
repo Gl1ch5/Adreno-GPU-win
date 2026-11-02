@@ -47,6 +47,24 @@ $L.Add("--- System events (display/dxgkrnl, last 2h) ---")
 Get-WinEvent -FilterHashtable @{LogName='System'; StartTime=(Get-Date).AddHours(-2)} -ErrorAction SilentlyContinue |
   Where-Object { $_.ProviderName -match 'Display|dxgkrnl|VirtioGpu|Kernel-PnP' -or $_.Message -match 'VirtIO GPU' } |
   Select-Object -First 40 | ForEach-Object { $L.Add("$($_.TimeCreated) [$($_.ProviderName) $($_.Id)] $($_.Message -replace '\s+',' ')") }
+$L.Add("--- Processes using GPU driver DLLs ---")
+foreach ($pn in 'dwm','explorer') {
+  Get-Process $pn -ErrorAction SilentlyContinue | ForEach-Object {
+    $p = $_; try { $p.Modules | Where-Object { $_.ModuleName -match 'virtio|dx11um|dx12um|vulkan|freedreno|dxgi|d3d11|d3d9on12|d3d12' } |
+      ForEach-Object { $L.Add("$($p.ProcessName)[$($p.Id)]: $($_.FileName)") } } catch { $L.Add("$pn modules: $_") }
+  }
+}
+$L.Add("--- Errors/warnings, last 30 min (System+Application) ---")
+Get-WinEvent -FilterHashtable @{LogName='System','Application'; Level=1,2,3; StartTime=(Get-Date).AddMinutes(-30)} -ErrorAction SilentlyContinue |
+  Select-Object -First 60 | ForEach-Object { $L.Add("$($_.TimeCreated) [$($_.LogName)/$($_.ProviderName) $($_.Id)] $(($_.Message -replace '\s+',' ').Substring(0, [Math]::Min(300, ($_.Message -replace '\s+',' ').Length)))") }
+$L.Add("--- dxdiag (display) ---")
+try {
+  $dx = Join-Path $env:TEMP 'dxdiag.txt'; Remove-Item $dx -ErrorAction SilentlyContinue
+  $pr = Start-Process dxdiag -ArgumentList "/t $dx" -PassThru -WindowStyle Hidden; if (-not $pr.WaitForExit(90000)) { $pr.Kill(); $L.Add('dxdiag timeout') }
+  $t = Get-Content $dx -ErrorAction SilentlyContinue
+  $i = ($t | Select-String -Pattern '^Display Devices' | Select-Object -First 1).LineNumber
+  if ($i) { $t[($i-1)..([Math]::Min($t.Count-1, $i+60))] | ForEach-Object { $L.Add($_) } } else { $L.Add('(no dxdiag output)') }
+} catch { $L.Add("dxdiag failed: $_") }
 $L | Set-Content -Encoding UTF8 $out
 Copy-Item $out (Join-Path $dir 'LATEST.txt') -Force
 # optional: send to the log server (only in the build downloaded from the server)
@@ -71,7 +89,7 @@ New-Item 'HKLM:\SYSTEM\CurrentControlSet\Services\VirtioGpu\Parameters\Bringup' 
 # 2) scheduled task: collect 90 s after every boot, as SYSTEM
 $act = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -File $tool\collect.ps1"
 $trg = New-ScheduledTaskTrigger -AtStartup
-$trg.Delay = 'PT90S'
+$trg.Delay = 'PT120S'
 Register-ScheduledTask -TaskName 'DroidVM GPU logs' -Action $act -Trigger $trg -User 'SYSTEM' -RunLevel Highest -Force | Out-Null
 
 # 3) Remote Desktop + use hardware GPU in RDP sessions
