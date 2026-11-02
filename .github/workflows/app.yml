@@ -22,8 +22,11 @@ jobs:
         run: |
           pip install pyinstaller==6.11.1
           cd tools/app
+          "$env:GITHUB_RUN_NUMBER" | Set-Content -NoNewline build.txt
+          "$env:GITHUB_RUN_NUMBER" | Set-Content -NoNewline dist-version.txt
           pyinstaller --onefile --noconsole --uac-admin --name DroidVM-GPU `
-            --add-data "ui.html;." droidvm_gpu.py
+            --add-data "ui.html;." --add-data "build.txt;." droidvm_gpu.py
+          Copy-Item dist-version.txt dist/version.txt
           Get-Item dist/DroidVM-GPU.exe | Format-List Name,Length
       - name: Release app-latest
         shell: pwsh
@@ -31,6 +34,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete app-latest --yes --cleanup-tag -R $env:GITHUB_REPOSITORY 2>$null
-          gh release create app-latest tools/app/dist/DroidVM-GPU.exe -R $env:GITHUB_REPOSITORY `
+          gh release create app-latest tools/app/dist/DroidVM-GPU.exe tools/app/dist/version.txt -R $env:GITHUB_REPOSITORY `
             --target $env:GITHUB_SHA --title "DroidVM GPU app (latest)" `
             --notes "Панель управления DroidVM GPU (неофициально). Сборка $env:GITHUB_SHA."

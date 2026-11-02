@@ -5,7 +5,7 @@ Windows only. Runs elevated (PyInstaller --uac-admin). No third-party deps.
 import json, os, subprocess, sys, threading, time, urllib.request, webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "1.1"
+APP_VERSION = "1.2"
 REPO = "Gl1ch5/Adreno-GPU-win"
 TASK = "DroidVM GPU logs"
 TOOL_DIR = r"C:\ProgramData\DroidVM-GPU"
@@ -14,6 +14,10 @@ FIXES = {"noubwc": "Без сжатия UBWC", "sysmem": "Без тайлово�
          "flushall": "Сброс кэшей после каждой отрисовки", "syncdraw": "Синхронизация после отрисовки"}
 NOWIN = 0x08000000  # CREATE_NO_WINDOW
 last_ping = time.time()
+INSTALL_EXE = os.path.join(TOOL_DIR, "DroidVM-GPU.exe")
+AGENT_TASK = "DroidVM GPU agent"
+APP_URL = f"https://github.com/{REPO}/releases/download/app-latest/"
+CHECK_EVERY = 3 * 3600
 
 
 def res(name):
@@ -50,6 +54,95 @@ $task = Get-ScheduledTask -TaskName 'DroidVM GPU logs'
   tdr = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\GraphicsDrivers').TdrDelay
 } | ConvertTo-Json -Compress
 """
+
+
+def app_build():
+    try:
+        return int(open(res("build.txt")).read().strip())
+    except Exception:
+        return 0
+
+
+def http_get(url, timeout=30):
+    req = urllib.request.Request(url, headers={"User-Agent": "droidvm-gpu-app"})
+    return urllib.request.urlopen(req, timeout=timeout).read()
+
+
+def remote_app_build():
+    return int(http_get(APP_URL + "version.txt").decode().split()[0])
+
+
+def installed_driver_build():
+    v = ps("(Get-CimInstance Win32_PnPSignedDriver | Where-Object { $_.DeviceName -like '*VirtIO GPU*' } | Select-Object -First 1).DriverVersion")
+    try:
+        return int(v.strip().split(".")[-1])
+    except Exception:
+        return 0
+
+
+def install_self():
+    """Copy the running exe to ProgramData and register the logon agent."""
+    if not getattr(sys, "frozen", False):
+        return
+    os.makedirs(TOOL_DIR, exist_ok=True)
+    me = os.path.abspath(sys.executable)
+    if os.path.normcase(me) != os.path.normcase(INSTALL_EXE):
+        try:
+            if os.path.exists(INSTALL_EXE):
+                os.replace(INSTALL_EXE, INSTALL_EXE + ".old")
+            import shutil
+            shutil.copy2(me, INSTALL_EXE)
+        except Exception:
+            pass
+    subprocess.run(["schtasks", "/Create", "/F", "/TN", AGENT_TASK, "/SC", "ONLOGON", "/RL", "HIGHEST",
+                    "/TR", f'"{INSTALL_EXE}" --agent'], capture_output=True, creationflags=NOWIN)
+    # start the agent now if it is not running yet
+    subprocess.run(["schtasks", "/Run", "/TN", AGENT_TASK], capture_output=True, creationflags=NOWIN)
+
+
+def self_update():
+    """Download a newer app build and swap the exe. Returns True if updated."""
+    try:
+        if remote_app_build() <= app_build():
+            return False
+        data = http_get(APP_URL + "DroidVM-GPU.exe", timeout=300)
+        if len(data) < 1_000_000:
+            return False
+        new = INSTALL_EXE + ".new"
+        open(new, "wb").write(data)
+        if os.path.exists(INSTALL_EXE):
+            try:
+                os.remove(INSTALL_EXE + ".old")
+            except OSError:
+                pass
+            os.replace(INSTALL_EXE, INSTALL_EXE + ".old")  # running exe can be renamed
+        os.replace(new, INSTALL_EXE)
+        return True
+    except Exception:
+        return False
+
+
+def agent():
+    """Background agent: keeps the app current, opens the UI on a new driver build."""
+    for f in (INSTALL_EXE + ".old", INSTALL_EXE + ".new"):
+        try:
+            os.remove(f)
+        except OSError:
+            pass
+    seen = os.path.join(TOOL_DIR, "agent-seen-driver.txt")
+    while True:
+        if self_update():
+            subprocess.Popen([INSTALL_EXE, "--agent"], creationflags=NOWIN)
+            os._exit(0)
+        try:
+            b = latest_build()
+            prev = open(seen).read().strip() if os.path.exists(seen) else ""
+            if b["n"] > installed_driver_build() and prev != b["tag"]:
+                open(seen, "w").write(b["tag"])
+                subprocess.Popen([INSTALL_EXE])
+        except Exception:
+            pass
+        time.sleep(CHECK_EVERY)
 
 
 def latest_build():
@@ -124,7 +217,9 @@ class H(BaseHTTPRequestHandler):
                 st = json.loads(ps(STATUS_PS) or "{}")
             except Exception as e:
                 st = {"error": str(e)}
-            st["app"] = APP_VERSION; st["fixes"] = FIXES
+            st["app"] = APP_VERSION; st["appbuild"] = app_build(); st["fixes"] = FIXES
+            st["agent"] = subprocess.run(["schtasks", "/Query", "/TN", AGENT_TASK], capture_output=True,
+                                         creationflags=NOWIN).returncode == 0
             return self._send(200, json.dumps(st, ensure_ascii=False).encode(), "application/json")
         if self.path == "/api/ping":
             return self._send(200, b"{}", "application/json")
@@ -151,6 +246,9 @@ def watchdog():
 
 
 def main():
+    if "--agent" in sys.argv:
+        return agent()
+    threading.Thread(target=install_self, daemon=True).start()
     srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
     url = f"http://127.0.0.1:{srv.server_address[1]}/"
     threading.Thread(target=watchdog, daemon=True).start()

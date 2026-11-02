@@ -81,7 +81,7 @@ async function act(a,arg){const r=await post(a,arg);toast(r.msg||'Готово')
 let fixList={};
 async function load(){
   const s=await (await fetch('/api/status')).json();
-  $('appv').textContent='v'+s.app;
+  $('appv').textContent='v'+s.app+' (сборка '+s.appbuild+')'+(s.agent?' · агент обновлений включён':'');
   $('device').textContent=s.device||'не найдено';
   $('status').innerHTML=s.status==='OK'?pill('ok','Работает'):s.status?pill('err',s.status+' (код '+(s.problem??'?')+')'):pill('warn','Выключено');
   $('driver').textContent=s.driver?s.driver+'  (build-'+s.driver.split('.').pop()+')':'—';

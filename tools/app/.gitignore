@@ -1,0 +1,5 @@
+build.txt
+dist-version.txt
+dist/
+build/
+*.spec

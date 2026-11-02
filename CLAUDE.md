@@ -46,3 +46,12 @@
   `startup,noubwc,sysmem`) и перезагружает. `/fixoff` → `DroidVM-GPU-Fix-Off.cmd`
   (`TU_DEBUG=startup`). На сервере файлы в `/opt/droidvm-logs/` (CRLF), маршруты в server.py.
 - Сборщик логов `TU_DEBUG` не перезаписывает, если он уже задан.
+
+## Программа DroidVM GPU (tools/app)
+- `https://grzxk.ru:8877/app` → релиз `app-latest` (`DroidVM-GPU.exe` + `version.txt` = run_number).
+  Python stdlib + PyInstaller (`--uac-admin`), UI — `ui.html` в Edge `--app`.
+- Первый запуск копирует себя в `C:\ProgramData\DroidVM-GPU\DroidVM-GPU.exe` и регистрирует
+  задачу «DroidVM GPU agent» (ONLOGON, HIGHEST, `--agent`). Агент каждые 3 ч обновляет exe
+  (переименование .old/.new) и открывает окно, если вышла новая сборка драйвера.
+  Драйвер сам не ставит — пользователь жмёт «Установить» (видимый установщик).
+- Батники `/fix`, `/fixoff` — запасной вариант; основное — переключатели в программе.
