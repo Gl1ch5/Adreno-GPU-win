@@ -158,7 +158,8 @@ $s = $sh.CreateShortcut($lnk); $s.TargetPath = $dir; $s.Save()
 & powershell -NoProfile -ExecutionPolicy Bypass -File "$tool\collect.ps1"
 # 6) driver auto-update (scheduled task only): newest build-N release, diag installer.
 #    The tag is recorded BEFORE installing, so a failing release is tried only once.
-if ($env:DVM_AUTO -eq '1') {
+# disabled on user request: driver is installed by hand
+if ($false -and $env:DVM_AUTO -eq '1') {
   try {
     $rel = Invoke-RestMethod -TimeoutSec 60 -Headers @{ 'User-Agent' = 'droidvm-gpu' } 'https://api.github.com/repos/Gl1ch5/Adreno-GPU-win/releases?per_page=100' |
       Where-Object { $_.tag_name -like 'build-*' } | Sort-Object { [datetime]$_.created_at } -Descending | Select-Object -First 1
@@ -176,5 +177,11 @@ if ($env:DVM_AUTO -eq '1') {
     }
   } catch { Add-Content -Encoding UTF8 (Join-Path $dir 'update.txt') "$(Get-Date) update failed: $_" }
 }
-Write-Host 'OK: task "DroidVM GPU logs" registered, RDP enabled, first log saved.'
-Get-Content "$dir\LATEST.txt" | Select-String -Pattern 'IPv4' -Context 0,3
+Write-Host ''
+Write-Host '=== RESULT ==='
+$drv = Get-CimInstance Win32_PnPSignedDriver -ErrorAction SilentlyContinue | Where-Object { $_.DeviceName -like '*VirtIO GPU*' } | Select-Object -First 1
+if ($drv) { Write-Host ('Driver: ' + $drv.DriverVersion + '  (20.15.1.N = build-N)') } else { Write-Host 'Driver: NOT FOUND' }
+$up = Select-String -Path "$dir\LATEST.txt" -Pattern '^upload:' -ErrorAction SilentlyContinue | Select-Object -Last 1
+if ($up) { Write-Host ('Server: ' + $up.Line) } else { Write-Host 'Server: no upload line' }
+if (Test-Path 'C:\ProgramData\DroidVM-GPU\dxvk\mesa.log') { Write-Host 'Turnip log: yes' } else { Write-Host 'Turnip log: not yet (appears after a reboot with display device ON)' }
+Write-Host 'Auto log at every boot: ON.  Driver auto-install: OFF.'
