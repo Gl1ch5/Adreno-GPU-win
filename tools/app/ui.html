@@ -30,6 +30,7 @@ label.tg:last-of-type{border:0}.sw{position:relative;width:40px;height:20px;flex
 .bar.ind i{width:30%;animation:ind 1.2s ease-in-out infinite}@keyframes ind{0%{left:-30%}100%{left:100%}}
 .prog{height:4px;border-radius:2px;background:var(--stroke);overflow:hidden;margin-top:10px;display:none}.prog i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
 .meter{height:6px;border-radius:3px;background:var(--stroke);overflow:hidden;margin-top:4px}.meter i{display:block;height:100%;background:linear-gradient(90deg,#4cc2ff,#0067c0);transition:width .5s}
+.tag{font-size:11px;padding:1px 7px;border-radius:999px;margin-left:6px;font-weight:600}.tag.on{background:#0f7b0f22;color:var(--ok)}.tag.pend{background:#9d5d0022;color:var(--warn)}
 .big{font:600 28px "Segoe UI Variable Display","Segoe UI",sans-serif}
 #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(80px);background:var(--card);backdrop-filter:blur(30px);border:1px solid var(--stroke);border-radius:8px;padding:10px 16px;box-shadow:0 8px 24px #0003;transition:.25s;max-width:90vw}
 #toast.on{transform:translateX(-50%)}
@@ -108,16 +109,17 @@ async function pollJob(){const j=await (await fetch('/api/job')).json();
   else{bar(busy>0,null);$('prog').style.display='none';load()}}
 async function post(action,arg){busy++;bar(true,null);try{const r=await fetch('/api/action',{method:'POST',body:JSON.stringify({action,arg})});return await r.json()}finally{busy--;setTimeout(pollJob,300)}}
 async function act(a,arg){const r=await post(a,arg);toast(r.msg||'Готово');setTimeout(load,1500);return r}
-let fixList={};
+let fixList={},dirty=false;
 let loading=false;
 async function load(){if(loading)return;loading=true;let s;try{s=await (await fetch('/api/status')).json()}finally{loading=false}
+  if(!s.loaded){$('updinfo').textContent='Собираю сведения о драйвере…';bar(true,null)}else if(!busy){bar(false)}
   $('appv').textContent='v'+s.app+' (сборка '+s.appbuild+')'+(s.agent?' · агент обновлений включён':'');
   $('device').textContent=s.device||'не найдено';
   $('gpu').innerHTML=s.gpu?'<b>'+s.gpu.replace('(TM) ','')+'</b>':'—';if(s.gpu)$('title').textContent=s.gpu.replace('(TM) ','')+' · DroidVM';
   $('mesa').textContent=s.mesa||'—';$('fl').textContent=s.fl?'D3D '+s.fl:'—';
   const p3=Math.min(100,s.eng3d||0),pc=Math.min(100,s.engcopy||0);$('e3d').textContent=p3+' %';$('m3d').style.width=p3+'%';$('ecopy').textContent=pc+' %';$('mcopy').style.width=pc+'%';
   $('vram').textContent=(s.vramMB??'—')+' МБ';$('shared').textContent=(s.sharedMB??'—')+' МБ';
-  $('win').textContent=s.win||'—';$('cpu').textContent=s.cpu?s.cpu+' · '+s.cores+' потоков':'—';$('ram').textContent=s.ramGB?s.ramGB+' ГБ (свободно '+s.freeGB+')':'—';$('uptime').textContent=s.uptime||'—';
+  $('win').textContent=s.win||'—';$('cpu').textContent=s.cpu?s.cpu+' · '+s.cores+' потоков':'—';$('ram').textContent=s.ramGB?s.ramGB+' ГБ (свободно '+s.freeGB+')':'—';if(s.boot){const ms=Date.now()-Date.parse(s.boot),m=Math.floor(ms/60000);$('uptime').textContent=Math.floor(m/60)+' ч '+(m%60)+' мин'}
   $('status').innerHTML=s.status==='OK'?pill('ok','Работает'):s.status?pill('err',s.status+' (код '+(s.problem??'?')+')'):pill('warn','Выключено');
   $('driver').textContent=s.driver?s.driver+'  (build-'+s.driver.split('.').pop()+')':'—';
   $('mode').textContent=s.mode||'—';
@@ -128,12 +130,15 @@ async function load(){if(loading)return;loading=true;let s;try{s=await (await fe
   $('lastlog').textContent=s.lastlog||'—';
   $('upload').innerHTML=!s.upload?'—':/ok/.test(s.upload)?pill('ok','Отправлен'):pill('err','Ошибка');
   fixList=s.fixes||{};const on=(s.tu||'').split(',');
-  $('fixes').innerHTML=Object.entries(fixList).map(([k,v])=>`<label class="tg"><span>${v} <span class="muted">(${k})</span></span><span class="sw"><input type="checkbox" data-fix="${k}" ${on.includes(k)?'checked':''}><i></i></span></label>`).join('');
+  const act=(s.tuactive||'').split(',');
+  if(!document.querySelector('[data-fix]')||!dirty){$('fixes').innerHTML=Object.entries(fixList).map(([k,v])=>{const a=act.includes(k),sv=on.includes(k);
+    const tag=a&&sv?'<span class="tag on">активно</span>':sv?'<span class="tag pend">после перезагрузки</span>':a?'<span class="tag pend">выкл. после перезагрузки</span>':'';
+    return `<label class="tg"><span>${v} <span class="muted">(${k})</span>${tag}</span><span class="sw"><input type="checkbox" data-fix="${k}" ${sv?'checked':''} onchange="dirty=true"><i></i></span></label>`}).join('')}
   $('cpuwait').checked=s.cpuwait==='1';$('tdr').checked=!!s.tdr;
 }
-function allFixes(v){document.querySelectorAll('[data-fix]').forEach(x=>x.checked=v)}
+function allFixes(v){dirty=true;document.querySelectorAll('[data-fix]').forEach(x=>x.checked=v)}
 async function saveFixes(){const f=[...document.querySelectorAll('[data-fix]')].filter(x=>x.checked).map(x=>x.dataset.fix);
-  await post('cpuwait',$('cpuwait').checked);await post('tdr',$('tdr').checked);await act('fix',f)}
+  await post('cpuwait',$('cpuwait').checked);await post('tdr',$('tdr').checked);dirty=false;await act('fix',f)}
 async function checkUpdate(){$('updinfo').textContent='Проверяю…';try{const r=await post('checkupdate');
   const cur=parseInt((($('driver').textContent.match(/build-(\d+)/)||[])[1])||0);
   $('updinfo').textContent=r.n>cur?`Доступна ${r.tag} от ${r.date} (у вас build-${cur}). Сделайте клон диска ВМ.`:`Установлена последняя сборка (${r.tag}).`;

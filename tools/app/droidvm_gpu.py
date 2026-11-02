@@ -5,7 +5,7 @@ Windows only. Runs elevated (PyInstaller --uac-admin). No third-party deps.
 import json, os, subprocess, sys, threading, time, urllib.request, webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "1.6"
+APP_VERSION = "1.7"
 REPO = "Gl1ch5/Adreno-GPU-win"
 TASK = "DroidVM GPU logs"
 TOOL_DIR = r"C:\ProgramData\DroidVM-GPU"
@@ -37,50 +37,78 @@ def ps(script, timeout=60):
     return r.stdout.strip()
 
 
-STATUS_PS = r"""
+# slow, rarely changing data: refreshed in the background, never on the request path
+STATIC_PS = r"""
 $ErrorActionPreference='SilentlyContinue'
 $pid_ = 'PCI\VEN_1AF4&DEV_1050*'
-$d = Get-CimInstance Win32_PnPSignedDriver | Where-Object { $_.DeviceID -like $pid_ } | Select-Object -First 1
 $p = Get-PnpDevice -Class Display | Where-Object { $_.InstanceId -like $pid_ } | Select-Object -First 1
+$drv = if ($p) { (Get-PnpDeviceProperty -InstanceId $p.InstanceId -KeyName DEVPKEY_Device_DriverVersion).Data }
 $v = Get-CimInstance Win32_VideoController | Where-Object { $_.PNPDeviceID -like $pid_ } | Select-Object -First 1
 $mods = @(); $dwm = Get-Process dwm | Select-Object -First 1
 if ($dwm) { $mods = @($dwm.Modules | Where-Object { $_.ModuleName -match 'dx11um|vulkan_freedreno|droidvm_vulkan|d3d10warp' } | ForEach-Object { $_.ModuleName }) }
 $bf = Get-ChildItem "$env:USERPROFILE\Downloads\DroidVM-GPU-Logs\boot_*.txt" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 $up = if ($bf) { (Select-String -Path $bf.FullName -Pattern '^upload:' | Select-Object -Last 1).Line } else { $null }
 $task = Get-ScheduledTask -TaskName 'DroidVM GPU logs'
-# real GPU name / driver from the DXVK log written by our UMD
-$gpu = $null; $mesa = $null; $fl = $null
+$gpu = $null; $mesa = $null; $fl = $null; $tuact = $null
 $u = 'C:\ProgramData\DroidVM-GPU\dxvk\umd.log'
 if (Test-Path $u) {
   $fs = New-Object IO.FileStream($u, 'Open', 'Read', 'ReadWrite,Delete'); $len = $fs.Length
-  $fs.Seek([Math]::Max(0, $len - 4MB), 'Begin') | Out-Null; $t = (New-Object IO.StreamReader($fs)).ReadToEnd(); $fs.Close()
+  $fs.Seek([Math]::Max(0, $len - 2MB), 'Begin') | Out-Null; $t = (New-Object IO.StreamReader($fs)).ReadToEnd(); $fs.Close()
   $m = [regex]::Matches($t, 'Found device: ([^\(\r\n]+)\(') | Select-Object -Last 1; if ($m) { $gpu = $m.Groups[1].Value.Trim() }
   $m = [regex]::Matches($t, 'Driver\s*:\s*([^\r\n]+)') | Select-Object -Last 1; if ($m) { $mesa = $m.Groups[1].Value.Trim() }
   $m = [regex]::Matches($t, 'Using feature level (\S+)') | Select-Object -Last 1; if ($m) { $fl = $m.Groups[1].Value -replace 'D3D_FEATURE_LEVEL_','' -replace '_','.' }
 }
-$eng = @{}
-(Get-Counter '\GPU Engine(*)\Utilization Percentage' -ErrorAction SilentlyContinue).CounterSamples | ForEach-Object {
-  if ($_.InstanceName -match 'engtype_(\w+)') { $k = $Matches[1]; $eng[$k] = [double]$eng[$k] + $_.CookedValue } }
-$ded = (Get-Counter '\GPU Adapter Memory(*)\Dedicated Usage' -ErrorAction SilentlyContinue).CounterSamples | Measure-Object CookedValue -Sum
-$sha = (Get-Counter '\GPU Adapter Memory(*)\Shared Usage' -ErrorAction SilentlyContinue).CounterSamples | Measure-Object CookedValue -Sum
 $os = Get-CimInstance Win32_OperatingSystem; $cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
+$env_ = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment'
 [pscustomobject]@{
-  driver = $d.DriverVersion; status = "$($p.Status)"; problem = (Get-PnpDeviceProperty -InstanceId $p.InstanceId -KeyName DEVPKEY_Device_ProblemCode).Data
+  driver = $drv; status = "$($p.Status)"; problem = (Get-PnpDeviceProperty -InstanceId $p.InstanceId -KeyName DEVPKEY_Device_ProblemCode).Data
   device = $p.FriendlyName; gpu = $gpu; mesa = $mesa; fl = $fl
   mode = if ($v) { "$($v.CurrentHorizontalResolution)x$($v.CurrentVerticalResolution) @ $($v.CurrentRefreshRate) Hz" } else { $null }
-  eng3d = [math]::Round([double]$eng['3D'],1); engcopy = [math]::Round([double]$eng['Copy'],1)
-  vramMB = [math]::Round($ded.Sum/1MB); sharedMB = [math]::Round($sha.Sum/1MB)
-  dwm = $mods; tu = [Environment]::GetEnvironmentVariable('TU_DEBUG','Machine')
-  cpuwait = [Environment]::GetEnvironmentVariable('TU_WIN_SUBMIT_CPU_WAIT','Machine')
+  dwm = $mods; tu = (Get-ItemProperty $env_).TU_DEBUG; cpuwait = (Get-ItemProperty $env_).TU_WIN_SUBMIT_CPU_WAIT
   lastlog = if ($bf) { $bf.LastWriteTime.ToString('dd.MM HH:mm:ss') } else { $null }; upload = $up
-  task = [bool]$task; taskstate = "$($task.State)"
-  testsign = [bool](bcdedit | Select-String -Pattern 'testsigning\s+Yes')
+  task = [bool]$task
+  testsign = [bool](bcdedit /enum '{current}' | Select-String -Pattern 'testsigning\s+Yes')
   tdr = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\GraphicsDrivers').TdrDelay
   win = "$($os.Caption -replace 'Microsoft ','') $($os.Version)"; cpu = $cpu.Name; cores = $cpu.NumberOfLogicalProcessors
   ramGB = [math]::Round($os.TotalVisibleMemorySize/1MB,1); freeGB = [math]::Round($os.FreePhysicalMemory/1MB,1)
-  uptime = ((Get-Date) - $os.LastBootUpTime).ToString('d\.hh\:mm')
+  boot = $os.LastBootUpTime.ToString('o')
 } | ConvertTo-Json -Compress
 """
+
+# fast, live counters
+LIVE_PS = r"""
+$ErrorActionPreference='SilentlyContinue'
+$c = Get-Counter '\GPU Engine(*engtype_3D)\Utilization Percentage','\GPU Engine(*engtype_Copy)\Utilization Percentage','\GPU Adapter Memory(*)\Dedicated Usage','\GPU Adapter Memory(*)\Shared Usage'
+$r = @{e3d=0.0; ecopy=0.0; ded=0.0; sha=0.0}
+$c.CounterSamples | ForEach-Object {
+  if ($_.Path -match 'engtype_3d') { $r.e3d += $_.CookedValue } elseif ($_.Path -match 'engtype_copy') { $r.ecopy += $_.CookedValue }
+  elseif ($_.Path -match 'dedicated usage') { $r.ded += $_.CookedValue } elseif ($_.Path -match 'shared usage') { $r.sha += $_.CookedValue } }
+[pscustomobject]@{ eng3d=[math]::Round($r.e3d,1); engcopy=[math]::Round($r.ecopy,1); vramMB=[math]::Round($r.ded/1MB); sharedMB=[math]::Round($r.sha/1MB) } | ConvertTo-Json -Compress
+"""
+
+# env of this process = what processes started after the last boot actually use
+ACTIVE_TU = os.environ.get("TU_DEBUG", "")
+CACHE = {"static": {}, "live": {}, "static_t": 0.0}
+REFRESH = threading.Event()
+
+
+def refresher():
+    while True:
+        try:
+            CACHE["static"] = json.loads(ps(STATIC_PS, timeout=90) or "{}"); CACHE["static_t"] = time.time()
+        except Exception as e:
+            CACHE["static"]["error"] = str(e)
+        REFRESH.wait(30); REFRESH.clear()
+
+
+def live():
+    while True:
+        try:
+            CACHE["live"] = json.loads(ps(LIVE_PS, timeout=30) or "{}")
+        except Exception:
+            pass
+        time.sleep(4)
+
 
 
 def clean_env():
@@ -225,7 +253,7 @@ def action(name, arg):
     if name == "openlogs":
         os.makedirs(LOG_DIR, exist_ok=True); os.startfile(LOG_DIR); return {"ok": True, "msg": "Открыто"}
     if name == "fix":
-        return {"ok": True, "msg": "TU_DEBUG = " + set_fix(arg or []) + ". Нужна перезагрузка"}
+        return {"ok": True, "msg": "Сохранено: " + set_fix(arg or []) + ". Применится после перезагрузки"}
     if name == "cpuwait":
         v = "1" if arg else ""
         ps(f"[Environment]::SetEnvironmentVariable('TU_WIN_SUBMIT_CPU_WAIT',{('$null' if not v else repr(v))},'Machine')")
@@ -281,13 +309,11 @@ class H(BaseHTTPRequestHandler):
         if self.path in ("/", "/index.html"):
             return self._send(200, open(res("ui.html"), "rb").read(), "text/html; charset=utf-8")
         if self.path == "/api/status":
-            try:
-                st = json.loads(ps(STATUS_PS) or "{}")
-            except Exception as e:
-                st = {"error": str(e)}
+            st = dict(CACHE["static"]); st.update(CACHE["live"])
+            st["loaded"] = CACHE["static_t"] > 0
             st["app"] = APP_VERSION; st["appbuild"] = app_build(); st["fixes"] = FIXES
-            st["agent"] = subprocess.run(["schtasks", "/Query", "/TN", AGENT_TASK], capture_output=True,
-                                         creationflags=NOWIN).returncode == 0
+            st["tuactive"] = ACTIVE_TU
+            st["agent"] = AGENT_OK[0]
             return self._send(200, json.dumps(st, ensure_ascii=False).encode(), "application/json")
         if self.path == "/api/job":
             return self._send(200, json.dumps(JOB, ensure_ascii=False).encode(), "application/json")
@@ -300,12 +326,21 @@ class H(BaseHTTPRequestHandler):
         req = json.loads(self.rfile.read(n) or b"{}")
         try:
             out = action(req.get("action"), req.get("arg"))
+            REFRESH.set()
         except Exception as e:
             out = {"ok": False, "msg": f"Ошибка: {e}"}
         self._send(200, json.dumps(out, ensure_ascii=False).encode(), "application/json")
 
     def log_message(self, *a):
         pass
+
+
+AGENT_OK = [False]
+
+
+def check_agent():
+    AGENT_OK[0] = subprocess.run(["schtasks", "/Query", "/TN", AGENT_TASK], capture_output=True,
+                                 creationflags=NOWIN).returncode == 0
 
 
 def watchdog():
@@ -318,7 +353,9 @@ def watchdog():
 def main():
     if "--agent" in sys.argv:
         return agent()
-    threading.Thread(target=install_self, daemon=True).start()
+    threading.Thread(target=lambda: (install_self(), check_agent()), daemon=True).start()
+    threading.Thread(target=refresher, daemon=True).start()
+    threading.Thread(target=live, daemon=True).start()
     srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
     url = f"http://127.0.0.1:{srv.server_address[1]}/"
     threading.Thread(target=watchdog, daemon=True).start()
