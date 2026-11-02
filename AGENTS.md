@@ -3,6 +3,10 @@
 Неофициальная сборка VirtIO-GPU WDDM драйвера DroidVM (anonymix007 / Droid-VM,
 ветка `wingpu`) для Windows 11 ARM64. AGPL-3.0, не для продажи.
 
+## Состояние
+Ускорение работает на устройстве; см. README «Статус» и docs/STATUS.md.
+Следующие задачи: артефакты A8xx, DX12, OpenGL (Zink), ARM64EC, x86.
+
 ## Структура
 - `.github/workflows/build.yml` — Linux (llvm-mingw) собирает бинарники, Windows-раннер
   делает INF/каталог/подпись/установщики (Inno Setup) и релиз `build-N`.

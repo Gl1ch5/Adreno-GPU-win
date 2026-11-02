@@ -12,6 +12,50 @@
 >
 > Распространяется бесплатно, **не для продажи**. Без каких-либо гарантий.
 
+## Статус (2 ноября 2026)
+
+Сборка доведена до работы именно под нашу связку: **DroidVM (dev 3348830) на
+Snapdragon 8 Gen 5 / Adreno 829, Windows 11 ARM64**. Тест — в DroidVM на
+реальном устройстве.
+
+**Работает (проверено на устройстве):**
+- аппаратное ускорение рабочего стола: `dwm.exe` рисует через наш DirectX 11
+  драйвер → DXVK → Vulkan (Turnip) → GPU Adreno 829 телефона;
+- DirectX 11 / 10 приложения, уровень **D3D 11_1** (dxdiag: 11_1 … 9_1);
+- Chrome / Edge на GPU, видео YouTube 4K идёт почти без лагов;
+- прозрачность и эффекты Windows 11, Диспетчер задач видит GPU (3D-нагрузка, VRAM);
+- касание при разрешении 1920x1080 в DroidVM.
+
+**Известные проблемы:**
+- мелкие артефакты в элементах самой Windows (тени окон, часть текста —
+  белые прямоугольники); ошибок при этом нет — ищем, какая оптимизация
+  Turnip для A8xx рисует неверно (переключатели в программе);
+- **DirectX 12 не создаётся** (`vkd3d_create_device failed`) — DX12-игры пока не идут;
+- **DirectX 9** — отдельного драйвера нет, такие программы идут программно (WARP);
+- **OpenGL нет** — планируется (Mesa Zink: OpenGL поверх нашего Vulkan);
+- Vulkan-приложения напрямую ещё не проверялись.
+
+### Что сделано поверх исходников авторов (для DroidVM dev)
+- `vulkan_freedreno.dll` слинкован статически (иначе не грузился: libz/libwinpthread);
+- драйвер ядра берёт адрес пула памяти GPU из реестра: crosvm в DroidVM dev
+  не сообщает его (фича `DROIDVM_BOOT_POOL`), пул задан в INF под ВМ на **3 ГБ**;
+- Turnip узнаёт Adreno 829 по ID `0x44030a00`, который отдаёт хост;
+- своя `libvirglrenderer.so` для хоста (релизы `host-N`) — исправлена ошибка
+  привязки памяти (EINVAL);
+- программа **DroidVM GPU** (ниже) и автосбор логов.
+
+## Обязательные настройки DroidVM
+- Graphics: Renderer **VirGL**, Graphics API **Native Context**, Host driver **DRM to KGSL**,
+  Virtio-GPU → **Enable display device** включено, разрешение **1920x1080**;
+- Protected VM: **Pseudo Unprotected**; память ВМ **3 ГБ** (под неё рассчитан адрес пула);
+- аварийный выход: выключить Enable display device — Windows загрузится без драйвера.
+
+## Программа DroidVM GPU
+`DroidVM-GPU.exe` (релиз `app-latest`): состояние драйвера и GPU, нагрузка,
+отправка логов, переключатели исправлений Turnip, установка новых сборок
+драйвера. Сама обновляется (проверка каждую минуту) и сообщает о новой сборке
+драйвера; драйвер ставится только по кнопке.
+
 ## Скачать
 
 Раздел [Releases](../../releases):
@@ -39,9 +83,9 @@
    - ставит драйвер через `pnputil /add-driver ... /install`;
    - предлагает перезагрузку.
 4. После перезагрузки в «Диспетчере устройств» должен появиться
-   «VirtIO GPU 3D controller (DroidVM, unofficial build)».
-5. Режим графики DroidVM: сначала **Native** (vDRM/MSM → Turnip). Режим
-   **Vulkan** (Venus) в этой сборке не поддерживается — см. ниже.
+   «Qualcomm Adreno 829 (DroidVM, unofficial build)» (до build-37 — «VirtIO GPU 3D controller»).
+5. Режим графики DroidVM — **Native Context** (см. настройки выше). Режим
+   **Vulkan** (Venus) в этой сборке не поддерживается.
 
 Журналы: `C:\ProgramData\DroidVM-GPU\install.log`, `uninstall.log`.
 
@@ -67,7 +111,7 @@
 | Файл в пакете | Исходник |
 |---|---|
 | `virtio_wddm_rs.sys` — драйвер ядра WDDM (Rust) | [Droid-VM/virtio-drivers-windows-rs](https://github.com/Droid-VM/virtio-drivers-windows-rs/tree/wingpu) |
-| `dx11um_virtio.dll` — DirectX 9/10/11 (DXVK внутри) | [Droid-VM/virtio-d3d11](https://github.com/Droid-VM/virtio-d3d11/tree/wingpu), [Droid-VM/dxvk](https://github.com/Droid-VM/dxvk/tree/wingpu) |
+| `dx11um_virtio.dll` — DirectX 10/11 (DXVK внутри) | [Droid-VM/virtio-d3d11](https://github.com/Droid-VM/virtio-d3d11/tree/wingpu), [Droid-VM/dxvk](https://github.com/Droid-VM/dxvk/tree/wingpu) |
 | `dx12um_virtio.dll` — DirectX 12 | [Droid-VM/virtio-d3d12](https://github.com/Droid-VM/virtio-d3d12/tree/wingpu) + [Droid-VM/vkd3d-proton](https://github.com/Droid-VM/vkd3d-proton/tree/wingpu) |
 | `vulkan_freedreno.dll` — Vulkan (Turnip) | [Droid-VM/mesa](https://github.com/Droid-VM/mesa/tree/wingpu) |
 | `droidvm_vulkan.dll` — загрузчик Vulkan | [KhronosGroup/Vulkan-Loader](https://github.com/KhronosGroup/Vulkan-Loader) |
@@ -104,7 +148,7 @@ scripts/fetch-sources.sh
 ARCH=arm64 scripts/build.sh      # результат в out/arm64
 ```
 
-План: ARM64 → ARM64EC (x64-игры) → x86 (32-битные игры).
+План: артефакты A8xx → DirectX 12 → OpenGL (Zink) → ARM64EC (x64-игры) → x86 (32-битные игры).
 
 ## Лицензия
 
