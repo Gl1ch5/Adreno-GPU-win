@@ -20,3 +20,11 @@
 - Аварийный выход для пользователя: DroidVM → Graphics → Virtio-GPU →
   Enable display device = off (Windows грузится через SimpleFB).
 - Токен сервера лежит только на сервере (`/opt/droidvm-logs/token`), не коммитить.
+
+## Автообновление (с 7e21f14)
+- Задача при загрузке запускает `C:\ProgramData\DroidVM-GPU\update.ps1`: качает свежий
+  скрипт с сервера (`/setup/<token>`) и выполняет его. Обновить сборщик = положить новый
+  `tools/DroidVM-GPU-Logs.cmd` в `/opt/droidvm-logs/DroidVM-GPU-Logs.cmd`.
+- Драйвер: при новом релизе `build-N` ставится `DroidVM-GPU-Setup-diag.exe /VERYSILENT`,
+  затем перезагрузка; тег пишется в `driver-tag.txt` до установки (одна попытка на релиз),
+  журнал — `Загрузки\DroidVM-GPU-Logs\update.txt`.
