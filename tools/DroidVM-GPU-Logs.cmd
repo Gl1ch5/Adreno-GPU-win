@@ -68,7 +68,9 @@ Get-ChildItem 'C:\ProgramData\DroidVM-GPU\dxvk' -File -ErrorAction SilentlyConti
   $L.Add("## $($_.Name) $($_.LastWriteTime) $($_.Length) bytes"); Get-Content $_.FullName -Tail 120 | ForEach-Object { $L.Add($_) } }
 $L.Add("--- mesa.log (Turnip) ---")
 $m = 'C:\ProgramData\DroidVM-GPU\dxvk\mesa.log'
-if (Test-Path $m) { Get-Content $m -TotalCount 200 | ForEach-Object { $L.Add($_) } } else { $L.Add('(no mesa.log)') }
+if (Test-Path $m) { try { $seen2 = New-Object 'System.Collections.Generic.HashSet[string]'; $n2 = 0
+  $fs2 = New-Object IO.FileStream($m, 'Open', 'Read', 'ReadWrite,Delete'); $sr2 = New-Object IO.StreamReader($fs2)
+  while ($null -ne ($ln = $sr2.ReadLine())) { if ($ln -match 'error|warn|fail|lost|hang|timeout|fault|not consumed|not reached|reject' -and $seen2.Add($ln)) { $L.Add($ln); if (++$n2 -ge 200) { break } } }; $sr2.Close() } catch { $L.Add("mesa.log read failed: $_") } } else { $L.Add('(no mesa.log)') }
 $L.Add("--- umd.log: unique error-like lines ---")
 $u = 'C:\ProgramData\DroidVM-GPU\dxvk\umd.log'
 if (Test-Path $u) { try { $seen = New-Object 'System.Collections.Generic.HashSet[string]'; $n = 0
