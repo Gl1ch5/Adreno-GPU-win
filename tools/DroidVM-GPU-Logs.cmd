@@ -66,17 +66,27 @@ Get-WinEvent -FilterHashtable @{LogName='System','Application'; Level=1,2,3; Sta
 $L.Add("--- DXVK logs (newest) ---")
 Get-ChildItem 'C:\ProgramData\DroidVM-GPU\dxvk' -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 3 | ForEach-Object {
   $L.Add("## $($_.Name) $($_.LastWriteTime) $($_.Length) bytes"); Get-Content $_.FullName -Tail 120 | ForEach-Object { $L.Add($_) } }
-$L.Add("--- mesa.log (Turnip) ---")
+# read only lines appended since the previous collect (logs stay open/locked by dwm)
+$offFile = 'C:\ProgramData\DroidVM-GPU\log-offsets.txt'
+$offs = @{}; if (Test-Path $offFile) { Get-Content $offFile | ForEach-Object { $k, $v = $_ -split '=', 2; if ($k) { $offs[$k] = [int64]$v } } }
+function Open-NewLines($path) {
+  $fs = New-Object IO.FileStream($path, 'Open', 'Read', 'ReadWrite,Delete')
+  $o = [int64]$offs[$path]; if ($o -gt $fs.Length) { $o = 0 }
+  $fs.Seek($o, 'Begin') | Out-Null; $script:offs[$path] = $fs.Length
+  New-Object IO.StreamReader($fs)
+}
+$L.Add("--- mesa.log (Turnip), new lines since last collect ---")
 $m = 'C:\ProgramData\DroidVM-GPU\dxvk\mesa.log'
 if (Test-Path $m) { try { $seen2 = New-Object 'System.Collections.Generic.HashSet[string]'; $n2 = 0
-  $fs2 = New-Object IO.FileStream($m, 'Open', 'Read', 'ReadWrite,Delete'); $sr2 = New-Object IO.StreamReader($fs2)
+  $sr2 = Open-NewLines $m
   while ($null -ne ($ln = $sr2.ReadLine())) { if ($ln -match 'error|warn|fail|lost|hang|timeout|fault|not consumed|not reached|reject' -and $seen2.Add($ln)) { $L.Add($ln); if (++$n2 -ge 200) { break } } }; $sr2.Close() } catch { $L.Add("mesa.log read failed: $_") } } else { $L.Add('(no mesa.log)') }
-$L.Add("--- umd.log: unique error-like lines ---")
+$L.Add("--- umd.log: new unique error-like lines ---")
 $u = 'C:\ProgramData\DroidVM-GPU\dxvk\umd.log'
 if (Test-Path $u) { try { $seen = New-Object 'System.Collections.Generic.HashSet[string]'; $n = 0
-  $fs = New-Object IO.FileStream($u, 'Open', 'Read', 'ReadWrite,Delete'); $sr = New-Object IO.StreamReader($fs)
+  $sr = Open-NewLines $u
   while ($null -ne ($ln = $sr.ReadLine())) { $t = $ln -replace '^\[umd pid=\d+ tid=\d+\] ', ''
     if ($t -match 'err|warn|fail|unsupported|tu_|turnip|physical|VK_ERROR|vdrm' -and $seen.Add($t)) { $L.Add($t); if (++$n -ge 300) { break } } }; $sr.Close() } catch { $L.Add("umd.log read failed: $_") } }
+$offs.GetEnumerator() | ForEach-Object { "$($_.Key)=$($_.Value)" } | Set-Content $offFile
 $L.Add("--- dwm crash dumps ---")
 $dmp = Get-ChildItem 'C:\ProgramData\DroidVM-GPU\dumps' -Filter *.dmp -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending
 $dmp | Select-Object -First 5 | ForEach-Object { $L.Add("$($_.Name) $($_.Length)") }
