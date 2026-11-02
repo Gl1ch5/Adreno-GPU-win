@@ -120,6 +120,7 @@ Register-ScheduledTask -TaskName 'DroidVM GPU logs' -Action $act -Trigger $trg -
 # 2b) DXVK log + dwm crash dumps (dwm runs as DWM-n user: folders must be writable)
 foreach ($sub in 'dxvk','dumps') { $p = "C:\ProgramData\DroidVM-GPU\$sub"; New-Item $p -ItemType Directory -Force | Out-Null; icacls $p /grant '*S-1-1-0:(OI)(CI)M' | Out-Null }
 [Environment]::SetEnvironmentVariable('DXVK_LOG_LEVEL', 'info', 'Machine')
+[Environment]::SetEnvironmentVariable('VIRTIO_WDDM_LOG_FILE', 'C:\ProgramData\DroidVM-GPU\dxvk\umd.log', 'Machine')
 [Environment]::SetEnvironmentVariable('DXVK_LOG_PATH', 'C:\ProgramData\DroidVM-GPU\dxvk', 'Machine')
 $wer = 'HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\dwm.exe'
 New-Item $wer -Force | Out-Null
