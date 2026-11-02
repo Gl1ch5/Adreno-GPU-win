@@ -85,3 +85,10 @@ GPU-пула, отсюда EINVAL(22). Не проверено.
 - Логи: `/var/lib/droidvm-logs/` (читать через MCP run_root: `ls -t /var/lib/droidvm-logs | head`).
 - В VM: задача планировщика "DroidVM GPU logs" (SYSTEM, через 90 с после загрузки) → `C:\ProgramData\DroidVM-GPU\collect.ps1`,
   копии в `%USERPROFILE%\Downloads\DroidVM-GPU-Logs\` (LATEST.txt), также включает RDP и GPU для RDP.
+
+## Тест 06:16 (Graphics API = Vulkan или Native+Vulkan(System) — уточняется)
+- Сервер получил лог текущей загрузки с GPU: device Status=OK, Problem=0 (нет Code 43),
+  RtCreateDevice 0x62, submit 12/12, но present 12/12 NotGuestBlob, primary снова 3D virgl
+  (ResId 2/3) → вероятно, снова чёрный экран. Логи предыдущей попытки не пришли
+  (ВМ выключена раньше 90 с). Ждём лог DroidVM (ERROR) и проверку RDP на 192.168.148.128.
+- Релиз build-12: INF создаёт Parameters\Bringup, в релизе есть DroidVM-GPU-Logs.cmd (без токена).
