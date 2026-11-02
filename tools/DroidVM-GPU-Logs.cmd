@@ -147,8 +147,8 @@ $s = $sh.CreateShortcut($lnk); $s.TargetPath = $dir; $s.Save()
 #    The tag is recorded BEFORE installing, so a failing release is tried only once.
 if ($env:DVM_AUTO -eq '1') {
   try {
-    $rel = Invoke-RestMethod -TimeoutSec 60 -Headers @{ 'User-Agent' = 'droidvm-gpu' } 'https://api.github.com/repos/Gl1ch5/Adreno-GPU-win/releases?per_page=20' |
-      Where-Object { $_.tag_name -like 'build-*' } | Select-Object -First 1
+    $rel = Invoke-RestMethod -TimeoutSec 60 -Headers @{ 'User-Agent' = 'droidvm-gpu' } 'https://api.github.com/repos/Gl1ch5/Adreno-GPU-win/releases?per_page=100' |
+      Where-Object { $_.tag_name -like 'build-*' } | Sort-Object { [datetime]$_.created_at } -Descending | Select-Object -First 1
     $tagFile = Join-Path $tool 'driver-tag.txt'
     $cur = (Get-Content $tagFile -ErrorAction SilentlyContinue | Select-Object -First 1)
     $asset = $rel.assets | Where-Object name -eq 'DroidVM-GPU-Setup-diag.exe'
