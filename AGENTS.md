@@ -15,6 +15,12 @@
 - `tools/DroidVM-GPU-Logs.cmd` — сборщик логов в ВМ (задача при загрузке, логи в
   Downloads, опционально upload на сервер, включает RDP).
 - `patches/dxil-spirv/` — патч к dxil-spirv (неопубликованный коммит апстрима).
+- `patches/mesa/` — лог Mesa в файл на Windows (`MESA_LOG_FILE`), лог этапов vdrm-wddm,
+  chip_id Adreno 829 для virtio-гостя (`0x44030a00`).
+- `patches/virtio-drivers-windows-rs/` — KMD: адрес boot-pool из реестра, если crosvm
+  не даёт фичу 7 (`DROIDVM_BOOT_POOL`). Значения ставит INF (`PoolBaseLow/High`, `PoolSizeMiB`).
+- `host/` + `.github/workflows/host.yml` — своя `libvirglrenderer.so` для хоста (Android)
+  с патчем attach_iov; релизы `host-N`, установка через Termux (`install-virgl.sh`).
 - `versions.env` — пины версий.
 - `docs/STATUS.md` — журнал тестов и текущее состояние. Обновлять после каждого теста.
 
@@ -24,6 +30,11 @@
   glslangValidator, cbindgen). PowerShell-скрипты проверять парсером pwsh.
 - Не синхронизировать `virtio_wddm_uapi.h` (UMD) с `uapi.rs` (KMD) — см. STATUS.md.
 - `*.cmd` хранятся с CRLF (`.gitattributes`).
+- Патчи применяет `fetch-sources.sh` (уже применённые пропускаются, неприменимые — ошибка).
+- Turnip должен быть статически слинкован: `build.sh` падает, если DLL импортирует не
+  системную библиотеку (libz/libwinpthread уже ломали загрузку ICD).
+- В meson массивы передавать как `"-Dx=['a','b']"`, не через запятую.
+- CI кэширует ccache и Rust; кэш может создать каталог `src/<repo>` до клонирования.
 - Не включать Venus (`vulkan_virtio.dll`) — на Windows не собирается/не работает.
 - Коммиты: ветка `claude/droidvm-gpu-driver-build-kbxnrt`, без идентификаторов моделей.
 - Секреты (токен сервера логов, PFX) в репозиторий не коммитить. Репозиторий публичный.

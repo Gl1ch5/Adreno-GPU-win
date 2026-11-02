@@ -21,10 +21,22 @@
   Enable display device = off (Windows грузится через SimpleFB).
 - Токен сервера лежит только на сервере (`/opt/droidvm-logs/token`), не коммитить.
 
-## Автообновление (с 7e21f14)
-- Задача при загрузке запускает `C:\ProgramData\DroidVM-GPU\update.ps1`: качает свежий
-  скрипт с сервера (`/setup/<token>`) и выполняет его. Обновить сборщик = положить новый
-  `tools/DroidVM-GPU-Logs.cmd` в `/opt/droidvm-logs/DroidVM-GPU-Logs.cmd`.
-- Драйвер: при новом релизе `build-N` ставится `DroidVM-GPU-Setup-diag.exe /VERYSILENT`,
-  затем перезагрузка; тег пишется в `driver-tag.txt` до установки (одна попытка на релиз),
-  журнал — `Загрузки\DroidVM-GPU-Logs\update.txt`.
+## Сборщик логов (tools/DroidVM-GPU-Logs.cmd)
+- Ссылка для ВМ: `https://grzxk.ru:8877/setup/<token>` (токен только на сервере).
+- При каждой загрузке задача качает свежий скрипт с сервера и выполняет его. Обновить
+  сборщик = положить файл в `/opt/droidvm-logs/DroidVM-GPU-Logs.cmd` (брать raw по хэшу
+  коммита: raw по ветке кэшируется).
+- Драйвер сам НЕ ставится (пользователь попросил ставить вручную). Батник в конце
+  показывает версию драйвера (`20.15.1.N` = build-N) и результат отправки.
+- Включает: `VIRTIO_WDDM_LOG_FILE` (лог UMD), `MESA_LOG_FILE`, `TU_DEBUG=startup`,
+  `MESA_LOG_LEVEL=debug`, `VDRM_WDDM_DEBUG=1`, WER-дампы dwm (`*.dmp.b64` на сервере).
+  Новые переменные действуют со следующей загрузки.
+- Загрузки без дисплея (BasicDisplay) содержат старые строки mesa/umd — смотреть лог
+  загрузки с включённым Enable display device.
+
+## Настройки DroidVM для теста (обязательно)
+- Graphics: Renderer VirGL, Graphics API **Native Context**, Host driver DRM to KGSL,
+  Enable display device = on, Protected VM = Pseudo Unprotected.
+- Память ~3 GiB (в логе хоста `3002 MB`, пул `0x13c000000..0x140000000`): адрес пула
+  в INF рассчитан на это. В режиме Vulkan Windows видит только capset venus.
+- На хосте стоит своя libvirglrenderer (host-3), бэкап `.orig` рядом.
