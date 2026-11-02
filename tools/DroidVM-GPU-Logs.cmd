@@ -68,13 +68,14 @@ Get-WinEvent -FilterHashtable @{LogName='System','Application'; Level=1,2,3; Sta
   Select-Object -First 60 | ForEach-Object { $L.Add("$($_.TimeCreated) [$($_.LogName)/$($_.ProviderName) $($_.Id)] $(($_.Message -replace '\s+',' ').Substring(0, [Math]::Min(300, ($_.Message -replace '\s+',' ').Length)))") }
 $L.Add("--- DXVK logs (newest) ---")
 Get-ChildItem 'C:\ProgramData\DroidVM-GPU\dxvk' -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 3 | ForEach-Object {
-  $L.Add("## $($_.Name) $($_.LastWriteTime) $($_.Length) bytes"); Get-Content $_.FullName -Tail 120 | ForEach-Object { $L.Add($_) } }
+  $L.Add("## $($_.Name) $($_.LastWriteTime) $($_.Length) bytes"); if ($_.Length -lt 64MB) { Get-Content $_.FullName -Tail 120 | ForEach-Object { $L.Add($_) } } }
 # read only lines appended since the previous collect (logs stay open/locked by dwm)
 $offFile = 'C:\ProgramData\DroidVM-GPU\log-offsets.txt'
 $offs = @{}; if (Test-Path $offFile) { Get-Content $offFile | ForEach-Object { $k, $v = $_ -split '=', 2; if ($k) { $offs[$k] = [int64]$v } } }
 function Open-NewLines($path) {
   $fs = New-Object IO.FileStream($path, 'Open', 'Read', 'ReadWrite,Delete')
   $o = [int64]$offs[$path]; if ($o -gt $fs.Length) { $o = 0 }
+  if ($fs.Length - $o -gt 8MB) { $o = $fs.Length - 8MB }  # verbose logs grow fast: last 8 MB only
   $fs.Seek($o, 'Begin') | Out-Null; $script:offs[$path] = $fs.Length
   New-Object IO.StreamReader($fs)
 }
