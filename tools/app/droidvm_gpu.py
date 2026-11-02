@@ -5,7 +5,7 @@ Windows only. Runs elevated (PyInstaller --uac-admin). No third-party deps.
 import json, os, subprocess, sys, threading, time, urllib.request, webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "1.4"
+APP_VERSION = "1.5"
 REPO = "Gl1ch5/Adreno-GPU-win"
 TASK = "DroidVM GPU logs"
 TOOL_DIR = r"C:\ProgramData\DroidVM-GPU"
@@ -77,6 +77,18 @@ $os = Get-CimInstance Win32_OperatingSystem; $cpu = Get-CimInstance Win32_Proces
   uptime = ((Get-Date) - $os.LastBootUpTime).ToString('d\.hh\:mm')
 } | ConvertTo-Json -Compress
 """
+
+
+def clean_env():
+    """Environment for launching our own exe: without the PyInstaller vars the child
+    would reuse this process's _MEI temp dir ("Failed to remove temporary directory")."""
+    env = {k: v for k, v in os.environ.items() if not k.upper().startswith(("_PYI", "_MEI"))}
+    env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
+    return env
+
+
+def launch_self(*args):
+    subprocess.Popen([INSTALL_EXE, *args], env=clean_env(), cwd=TOOL_DIR, creationflags=NOWIN)
 
 
 def app_build():
@@ -155,14 +167,14 @@ def agent():
     seen = os.path.join(TOOL_DIR, "agent-seen-driver.txt")
     while True:
         if self_update():
-            subprocess.Popen([INSTALL_EXE, "--agent"], creationflags=NOWIN)
+            launch_self("--agent")
             os._exit(0)
         try:
             b = latest_build()
             prev = open(seen).read().strip() if os.path.exists(seen) else ""
             if b["n"] > installed_driver_build() and prev != b["tag"]:
                 open(seen, "w").write(b["tag"])
-                subprocess.Popen([INSTALL_EXE])
+                launch_self()
         except Exception:
             pass
         time.sleep(CHECK_EVERY)
@@ -192,19 +204,19 @@ def set_fix(flags):
 
 def action(name, arg):
     if name == "sendlogs":
-        out = subprocess.run(["schtasks", "/Run", "/TN", TASK], capture_output=True, text=True,
-                             creationflags=NOWIN, errors="replace")
-        if out.returncode != 0:
+        collect = os.path.join(TOOL_DIR, "collect.ps1")
+        if not os.path.exists(collect):
             return {"ok": False, "msg": "Сборщик не установлен: запустите батник сборщика один раз"}
-        def wait():
+        def run():
             JOB.update(name="sendlogs", pct=None, msg="Собираю и отправляю логи…")
-            t0 = time.time(); time.sleep(3)
-            while time.time() - t0 < 240:
-                st = ps("(Get-ScheduledTask -TaskName 'DroidVM GPU logs').State")
-                if st != "Running": break
-                time.sleep(2)
-            JOB.update(msg="Логи отправлены"); time.sleep(2); JOB.update(name=None)
-        threading.Thread(target=wait, daemon=True).start()
+            try:
+                subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", collect, "-Quick"],
+                               capture_output=True, timeout=240, creationflags=NOWIN)
+                JOB.update(msg="Логи отправлены")
+            except Exception as e:
+                JOB.update(msg=f"Ошибка: {e}")
+            time.sleep(2); JOB.update(name=None)
+        threading.Thread(target=run, daemon=True).start()
         return {"ok": True, "msg": "Сбор логов запущен"}
     if name == "openlogs":
         os.makedirs(LOG_DIR, exist_ok=True); os.startfile(LOG_DIR); return {"ok": True, "msg": "Открыто"}
@@ -309,7 +321,7 @@ def main():
     edge = [p for p in (r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
                         r"C:\Program Files\Microsoft\Edge\Application\msedge.exe") if os.path.exists(p)]
     if edge:
-        subprocess.Popen([edge[0], f"--app={url}", "--window-size=1100,760"])
+        subprocess.Popen([edge[0], f"--app={url}", "--window-size=1100,760"], env=clean_env())
     else:
         webbrowser.open(url)
     srv.serve_forever()

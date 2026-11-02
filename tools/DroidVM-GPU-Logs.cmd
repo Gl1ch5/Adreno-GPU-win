@@ -19,6 +19,7 @@ $tool = 'C:\ProgramData\DroidVM-GPU'
 New-Item -ItemType Directory -Force $dir, $tool | Out-Null
 
 $collect = @'
+param([switch]$Quick)  # -Quick: manual send from the app, skips dxdiag (up to 90 s)
 # Runs at every boot (scheduled task). Dumps GPU driver diagnostics, then
 # clears them so every file describes exactly one boot.
 $dir = '__LOGDIR__'
@@ -91,13 +92,13 @@ $L.Add("--- dwm crash dumps ---")
 $dmp = Get-ChildItem 'C:\ProgramData\DroidVM-GPU\dumps' -Filter *.dmp -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending
 $dmp | Select-Object -First 5 | ForEach-Object { $L.Add("$($_.Name) $($_.Length)") }
 $L.Add("--- dxdiag (display) ---")
-try {
+if ($Quick) { $L.Add("(skipped: quick send)") } else { try {
   $dx = Join-Path $env:TEMP 'dxdiag.txt'; Remove-Item $dx -ErrorAction SilentlyContinue
   $pr = Start-Process dxdiag -ArgumentList "/t $dx" -PassThru -WindowStyle Hidden; if (-not $pr.WaitForExit(90000)) { $pr.Kill(); $L.Add('dxdiag timeout') }
   $t = Get-Content $dx -ErrorAction SilentlyContinue
   $i = ($t | Select-String -Pattern '^Display Devices' | Select-Object -First 1).LineNumber
   if ($i) { $t[($i-1)..([Math]::Min($t.Count-1, $i+60))] | ForEach-Object { $L.Add($_) } } else { $L.Add('(no dxdiag output)') }
-} catch { $L.Add("dxdiag failed: $_") }
+} catch { $L.Add("dxdiag failed: $_") } }
 $L | Set-Content -Encoding UTF8 $out
 Copy-Item $out (Join-Path $dir 'LATEST.txt') -Force
 # optional: send to the log server (only in the build downloaded from the server)
@@ -105,7 +106,7 @@ if ($upTok -notlike '__UPLOAD*') {
   try {
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     Invoke-RestMethod -Uri 'https://grzxk.ru:8877/upload' -Method Post -TimeoutSec 30 `
-      -Headers @{ 'X-Token' = $upTok; 'X-Name' = "$env:COMPUTERNAME-boot_$ts.txt" } `
+      -Headers @{ 'X-Token' = $upTok; 'X-Name' = "$env:COMPUTERNAME-$(if ($Quick) {'manual'} else {'boot'})_$ts.txt" } `
       -ContentType 'text/plain; charset=utf-8' -Body ([IO.File]::ReadAllBytes($out)) | Out-Null
     if ($dmp) { $d = $dmp[0]; Invoke-RestMethod -Uri 'https://grzxk.ru:8877/upload' -Method Post -TimeoutSec 60 `
       -Headers @{ 'X-Token' = $upTok; 'X-Name' = "$env:COMPUTERNAME-boot_$ts.dmp.b64" } `
@@ -115,9 +116,11 @@ if ($upTok -notlike '__UPLOAD*') {
   } catch { Add-Content -Encoding UTF8 $out "upload: FAILED $_" }
 }
 # reset diagnostics for the next boot (key must exist for the driver)
+if (-not $Quick) {
 Get-ChildItem 'C:\ProgramData\DroidVM-GPU\dxvk' -File -ErrorAction SilentlyContinue | ForEach-Object { try { Remove-Item $_.FullName -Force -ErrorAction Stop } catch { Clear-Content $_.FullName -ErrorAction SilentlyContinue } }
 Remove-Item $key -Force -ErrorAction SilentlyContinue
 New-Item $key -Force | Out-Null
+}
 '@
 Set-Content -Encoding UTF8 (Join-Path $tool 'collect.ps1') $collect.Replace('__LOGDIR__', $dir).Replace('__UPTOKEN__', '__UPLOAD_TOKEN__')
 
