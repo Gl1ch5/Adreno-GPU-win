@@ -129,3 +129,6 @@ GPU-пула, отсюда EINVAL(22). Не проверено.
   Первая привязка — KMD UPDATE_PAGE_TABLE (attach_backing_virtual, постранично 2523, без detach),
   вторая — MAP_APERTURE_SEGMENT (detach+attach по MDL, 26 кусков); на хосте detach не успевает.
 - host-3: патч host/patches/0001 — attach_iov заменяет существующий backing вместо EINVAL.
+- 07:40 host-3: `attach_iov: res_handle=2/3 replacing existing backing (2523 -> 18/375 iovs)` — ошибок
+  ResourceAttachBacking больше нет. Windows: Status=OK, present 10/10 (host path, NotGuestBlob),
+  submit/fence 10/10. Ждём, что видно на экране.
