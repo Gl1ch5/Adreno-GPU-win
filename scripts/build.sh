@@ -62,8 +62,9 @@ UAPI=$(dirname "$OUT")/arm64/include/virtio_wddm_uapi.h
 step "dx11um_virtio.dll (DXVK)"
 D11=$SRC/virtio-d3d11
 ddk_headers "$D11/include/winddk" >/dev/null
-# NOTE: the published KMD uapi (cbindgen) lags behind the header checked in
-# to virtio-d3d11; user-mode parts are built against the d3d11 copy.
+# UMDs use their own uapi header (include/virtio_wddm_uapi.h). The KMD parses
+# the newer ReuseBlob/Primary allocation extensions by private-data size
+# (+12/+32 bytes, adapter.rs), so the two headers are intentionally not synced.
 LTO=-flto; [ "$ARCH" = x86 ] && LTO=
 make -C "$D11" -j"$JOBS" PREFIX=$PREFIX BUILD_DIR=build-$TAG LTO=$LTO
 cp "$D11/build-$TAG/dist/dx11um_virtio.dll" "$OUT/"

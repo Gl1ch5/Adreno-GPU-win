@@ -93,6 +93,10 @@ $rev = Get-ChildItem bin -Recurse -Filter REVISIONS.md | Select-Object -First 1
 - ``DroidVM-GPU-driver.zip`` — тот же пакет для ручной установки (pnputil)
 
 Состав: ARM64 — KMD, D3D11 (DXVK), D3D12 (vkd3d-proton), Vulkan (Turnip), Vulkan-Loader.
+Пара KMD/UMD собрана из разных коммитов (UMD — со своим ``virtio_wddm_uapi.h``,
+KMD — со своим ``uapi.rs``); совместимость проверена по разбору размеров private data
+в adapter.rs (+12/+32 байта). **На устройстве ещё не тестировалось.**
+
 Venus (vulkan_virtio.dll) в публичных исходниках не собирается под Windows — не включён.
 
 Исходники:
