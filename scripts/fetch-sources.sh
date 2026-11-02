@@ -8,7 +8,13 @@ mkdir -p "$SRC" && cd "$SRC"
 
 clone() { # url dir [branch]
   [ -d "$2/.git" ] && return
-  git clone -q --depth 1 ${3:+-b "$3"} "$1" "$2"
+  if [ -d "$2" ]; then
+    # dir pre-exists (e.g. restored build cache): clone aside and merge in
+    git clone -q --depth 1 ${3:+-b "$3"} "$1" "$2.clone"
+    cp -a "$2.clone/." "$2/" && rm -rf "$2.clone"
+  else
+    git clone -q --depth 1 ${3:+-b "$3"} "$1" "$2"
+  fi
 }
 for r in virtio-drivers-windows-rs virtio-d3d11 virtio-d3d12 vkd3d-proton mesa; do
   clone "https://github.com/Droid-VM/$r" "$r" "$DROIDVM_BRANCH"
