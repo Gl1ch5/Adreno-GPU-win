@@ -1,0 +1,53 @@
+diff --git a/dxil_converter.cpp b/dxil_converter.cpp
+index 27458b9e..d3b5a3c7 100644
+--- a/dxil_converter.cpp
++++ b/dxil_converter.cpp
+@@ -4982,7 +4982,8 @@ bool Converter::Impl::emit_stage_output_variables()
+ 			if (resource_mapping_iface)
+ 			{
+ 				VulkanStreamOutput vk_output = {};
+-				if (!resource_mapping_iface->remap_stream_output({ semantic_name.c_str(), semantic_index }, vk_output))
++				if (!resource_mapping_iface->remap_stream_output({ semantic_name.c_str(), semantic_index,
++				        unsigned(get_constant_metadata(output, 8)), unsigned(get_constant_metadata(output, 9)) }, vk_output))
+ 					return false;
+ 
+ 				if (vk_output.enable)
+diff --git a/dxil_converter.hpp b/dxil_converter.hpp
+index ab91bad8..e7abe701 100644
+--- a/dxil_converter.hpp
++++ b/dxil_converter.hpp
+@@ -194,6 +194,8 @@ struct D3DStreamOutput
+ {
+ 	const char *semantic;
+ 	unsigned semantic_index;
++	unsigned start_row;
++	unsigned start_col;
+ };
+ 
+ struct VulkanStreamOutput
+diff --git a/dxil_spirv_c.cpp b/dxil_spirv_c.cpp
+index b52e1a8f..d7a90a27 100644
+--- a/dxil_spirv_c.cpp
++++ b/dxil_spirv_c.cpp
+@@ -251,7 +251,7 @@ struct Remapper : ResourceRemappingInterface
+ 
+ 	bool remap_stream_output(const D3DStreamOutput &d3d_output, VulkanStreamOutput &vk_output) override
+ 	{
+-		dxil_spv_d3d_stream_output c_output = { d3d_output.semantic, d3d_output.semantic_index };
++		dxil_spv_d3d_stream_output c_output = { d3d_output.semantic, d3d_output.semantic_index, d3d_output.start_row, d3d_output.start_col };
+ 		dxil_spv_vulkan_stream_output c_vk_output = {};
+ 
+ 		if (output_remapper)
+diff --git a/dxil_spirv_c.h b/dxil_spirv_c.h
+index da93ba0f..bf44fbee 100644
+--- a/dxil_spirv_c.h
++++ b/dxil_spirv_c.h
+@@ -114,6 +114,8 @@ typedef struct dxil_spv_d3d_stream_output
+ {
+ 	const char *semantic;
+ 	unsigned semantic_index;
++	unsigned start_row;
++	unsigned start_col;
+ } dxil_spv_d3d_stream_output;
+ 
+ typedef struct dxil_spv_vulkan_stream_output

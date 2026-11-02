@@ -1,0 +1,103 @@
+;
+; Copyright (C) 2026 anonymix007, DroidVM team
+; ARM64 package for the unofficial droidvm-gpu-build (based on the x64 INF
+; from Droid-VM/virtio-drivers-windows-rs, branch wingpu).
+;
+; virtio_wddm_rs.inf
+;
+
+[Version]
+Signature="$Windows NT$"
+Class=Display
+ClassGUID={4d36e968-e325-11ce-bfc1-08002be10318}
+Provider=%ManufacturerName%
+DriverVer=%%BUILDDATE%%, %%VERSION%%
+CatalogFile=virtio_wddm_rs.cat
+PnpLockdown=1
+
+[DestinationDirs]
+VirtioGpu_Files.Driver = 13   ; drivers
+VirtioGpu_Files.Usermode = 13 ; DriverStore
+
+[SourceDisksNames]
+1 = %DiskId1%,,,""
+
+[SourceDisksFiles]
+virtio_wddm_rs.sys = 1,,
+dx11um_virtio.dll = 1,,
+dx12um_virtio.dll = 1,,
+vulkan_freedreno.dll = 1,,
+droidvm_vulkan.dll = 1,,
+freedreno_icd.aarch64.json = 1,,
+;@EXTRA_SOURCEDISKSFILES@
+
+[Manufacturer]
+%ManufacturerName%=Standard,NTarm64.10.0...16299
+
+[Standard.NTarm64.10.0...16299]
+%VirtioGpu.DeviceDesc% = VirtioGpu_Inst, PCI\VEN_1AF4&DEV_1050&SUBSYS_11001AF4&REV_01
+%VirtioGpu.DeviceDesc% = VirtioGpu_Inst, PCI\VEN_1AF4&DEV_1050
+
+[VirtioGpu_Files.Driver]
+virtio_wddm_rs.sys,,,2
+
+[VirtioGpu_Files.Usermode]
+dx11um_virtio.dll,,,0
+dx12um_virtio.dll,,,0
+vulkan_freedreno.dll,,,0
+droidvm_vulkan.dll,,,0
+freedreno_icd.aarch64.json,,,0
+;@EXTRA_USERMODE_FILES@
+
+[VirtioGpu_Inst]
+Include=msdv.inf
+FeatureScore=F9
+CopyFiles=VirtioGpu_Files.Driver, VirtioGpu_Files.Usermode
+AddReg=VirtioGpu_DeviceSettings
+
+[VirtioGpu_Inst.Services]
+AddService = VirtioGpu,0x00000002,VirtioGpu_Service_Inst, VirtioGpu_EventLog_Inst
+
+[VirtioGpu_Inst.HW]
+AddReg = VirtioGpu_PCI_MSIX
+
+[VirtioGpu_Service_Inst]
+ServiceType = %SERVICE_KERNEL_DRIVER%
+StartType = %SERVICE_DEMAND_START%
+ErrorControl = %SERVICE_ERROR_IGNORE%
+ServiceBinary = %13%\virtio_wddm_rs.sys
+
+[VirtioGpu_EventLog_Inst]
+AddReg = VirtioGpu_EventLog_Inst.AddReg
+
+[VirtioGpu_EventLog_Inst.AddReg]
+HKR,,EventMessageFile,%REG_EXPAND_SZ%,"%%SystemRoot%%\System32\IoLogMsg.dll"
+HKR,,TypesSupported,%REG_DWORD%,7
+
+[VirtioGpu_DeviceSettings]
+; Slots: D3D9, D3D10, D3D11, D3D12
+HKR,, UserModeDriverName,          %REG_MULTI_SZ%, %13%\dx11um_virtio.dll,%13%\dx11um_virtio.dll,%13%\dx11um_virtio.dll,%13%\dx12um_virtio.dll
+HKR,, VulkanDriverName,            %REG_SZ%,       %13%\freedreno_icd.aarch64.json
+HKR,, D3D12Enable,                 %REG_DWORD%,    1
+HKR,, D3D12FeatureLevelOverride,   %REG_DWORD%,    0
+;@EXTRA_REG@
+
+[VirtioGpu_PCI_MSIX]
+HKR, "Interrupt Management",, 0x00000010
+HKR, "Interrupt Management\MessageSignaledInterruptProperties",, 0x00000010
+HKR, "Interrupt Management\MessageSignaledInterruptProperties", MSISupported, 0x00010001, 0
+HKR, "Interrupt Management\MessageSignaledInterruptProperties", MessageNumberLimit, 0x00010001, 4
+
+[Strings]
+diskId1 = "VirtIO GPU controller Installation Disk"
+VirtioGpu.DeviceDesc = "VirtIO GPU 3D controller (DroidVM, unofficial build)"
+ManufacturerName = "anonymix007 / DroidVM (unofficial build)"
+
+SERVICE_DEMAND_START = 0x3
+SERVICE_KERNEL_DRIVER = 0x1
+SERVICE_ERROR_IGNORE = 0x0
+
+REG_SZ        = 0x00000000
+REG_MULTI_SZ  = 0x00010000
+REG_EXPAND_SZ = 0x00020000
+REG_DWORD     = 0x00010001

@@ -1,0 +1,125 @@
+name: build
+
+on:
+  push:
+    branches: [main, master, 'claude/**']
+    paths-ignore: ['README.md']
+  workflow_dispatch:
+    inputs:
+      release:
+        description: 'Publish a GitHub release'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-linux:
+    name: build ${{ matrix.arch }} (llvm-mingw)
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [arm64]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Load versions
+        run: cat versions.env | grep -v '^#' >> "$GITHUB_ENV"
+
+      - name: Host packages
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q ninja-build cmake glslang-tools flex bison clang libclang-dev unzip python3-pip
+          pip3 install --break-system-packages -q 'meson>=1.6' mako pyyaml packaging
+          mkdir -p "$HOME/bin" && ln -sf "$(command -v clang)" "$HOME/bin/clang-cl"
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+
+      - name: Cache toolchain and WDK
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/llvm-mingw
+            winsdk/.nuget
+          key: tc-${{ env.LLVM_MINGW }}-${{ env.NUGET_VER }}
+
+      - name: llvm-mingw
+        run: |
+          if [ ! -x ~/llvm-mingw/bin/clang ]; then
+            curl -sSLf --retry 5 -o lm.tar.xz \
+              "https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW/llvm-mingw-$LLVM_MINGW-ucrt-ubuntu-22.04-x86_64.tar.xz"
+            mkdir -p ~/llvm-mingw && tar xf lm.tar.xz -C ~/llvm-mingw --strip-components=1 && rm lm.tar.xz
+          fi
+          echo "$HOME/llvm-mingw/bin" >> "$GITHUB_PATH"
+
+      - name: Rust nightly + cbindgen
+        if: matrix.arch == 'arm64'
+        run: |
+          rustup toolchain install nightly --profile minimal -c rust-src
+          cargo install cbindgen --locked -q
+
+      - name: WDK / SDK headers from NuGet
+        run: scripts/setup-winsdk.sh winsdk
+
+      - name: Fetch sources
+        run: scripts/fetch-sources.sh
+
+      - name: Build
+        run: ARCH=${{ matrix.arch }} scripts/build.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bin-${{ matrix.arch }}
+          path: |
+            out/${{ matrix.arch }}/*.dll
+            out/${{ matrix.arch }}/*.sys
+            out/${{ matrix.arch }}/*.pdb
+            src/REVISIONS.md
+          if-no-files-found: error
+
+  package-windows:
+    name: sign + installer
+    needs: build-linux
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: bin-*
+          path: bin
+
+      - name: Package, sign, build installer
+        shell: pwsh
+        env:
+          SIGN_PFX_BASE64: ${{ secrets.SIGN_PFX_BASE64 }}
+          SIGN_PFX_PASSWORD: ${{ secrets.SIGN_PFX_PASSWORD }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: ./scripts/package.ps1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DroidVM-GPU
+          path: |
+            dist/*
+          if-no-files-found: error
+
+      - name: Release
+        if: github.event_name == 'push' || inputs.release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: DroidVM GPU (unofficial) build ${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          body_path: dist/RELEASE_NOTES.md
+          prerelease: true
+          files: |
+            dist/DroidVM-GPU-Setup.exe
+            dist/DroidVM-GPU-Uninstall.exe
+            dist/DroidVM-GPU-driver.zip
+            dist/SHA256SUMS.txt
