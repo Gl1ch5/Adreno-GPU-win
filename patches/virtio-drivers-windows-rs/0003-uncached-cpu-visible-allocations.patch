@@ -1,0 +1,16 @@
+diff --git a/gpu-wddm/src/adapter.rs b/gpu-wddm/src/adapter.rs
+index a8606e4..38edeef 100644
+--- a/gpu-wddm/src/adapter.rs
++++ b/gpu-wddm/src/adapter.rs
+@@ -2676,7 +2676,10 @@ impl Adapter {
+                 // blt present (ETW: Lock/Unlock 4.2 ms for 3.2 MB on 992); the
+                 // only GPU access to these pages is host-side transfer, so a
+                 // cached CPU mapping is safe.
+-                alloc_info.FlagsWddm2_mut().set_Cached(cpu_visible);
++                // DroidVM native context: KGSL reads these pages directly, and a
++                // cached guest mapping leaves GDI writes in the CPU cache
++                // (stale/garbage tiles). Map them uncached.
++                alloc_info.FlagsWddm2_mut().set_Cached(false);
+                 alloc_info.FlagsWddm2_mut().set_AccessedPhysically(true);
+                 crate::bringup::record("Alloc3dLastCpuVisible", cpu_visible as u32);
+                 crate::bringup::record("Alloc3dLastVirglFlags", alloc_3d.flags);
