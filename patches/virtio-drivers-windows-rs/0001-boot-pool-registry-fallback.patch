@@ -1,0 +1,32 @@
+diff --git a/gpu-wddm/src/queue.rs b/gpu-wddm/src/queue.rs
+index 07c1cfc..2a10b8a 100644
+--- a/gpu-wddm/src/queue.rs
++++ b/gpu-wddm/src/queue.rs
+@@ -2794,7 +2794,26 @@ impl QueueHandler {
+                 crate::bringup::record("BootPoolBaseHigh", (base >> 32) as u32);
+                 crate::bringup::record("BootPoolSizeLow", size as u32);
+                 Some(pool)
+-            } else { None };
++            } else {
++                // DroidVM builds whose crosvm predates feature 7 still place DRM
++                // blobs in the pool (MAP_INFO_POOL) and announce it only as a
++                // no-map /reserved-memory node. Accept the address from the
++                // registry (Parameters\PoolBaseLow/High, PoolSizeMiB).
++                let lo = crate::bringup::read_parameter("PoolBaseLow");
++                let hi = crate::bringup::read_parameter("PoolBaseHigh").unwrap_or(0);
++                let mib = crate::bringup::read_parameter("PoolSizeMiB");
++                match (lo, mib) {
++                    (Some(lo), Some(mib)) if mib != 0 => {
++                        let base = (u64::from(hi) << 32) | u64::from(lo);
++                        let pool = crate::boot_pool::BootPool::new(base, u64::from(mib) << 20);
++                        crate::bringup::record("BootPoolFallback", pool.is_some() as u32);
++                        crate::bringup::record("BootPoolBaseLow", lo);
++                        crate::bringup::record("BootPoolBaseHigh", hi);
++                        pool
++                    }
++                    _ => None,
++                }
++            };
+             let host3d_budget = if negotiated_features.contains(Features::DROIDVM_VRAM_BUDGET) {
+                 let read_u64 = |offset| crate::boot_pool::read_config_u64(offset, |word_offset| {
+                     pci_transport.read_config_space::<u32>(word_offset)

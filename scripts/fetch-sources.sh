@@ -21,8 +21,13 @@ for r in virtio-drivers-windows-rs virtio-d3d11 virtio-d3d12 vkd3d-proton mesa; 
 done
 
 # mesa: local patches (idempotent: skip if already applied)
-for p in "$ROOT"/patches/mesa/*.patch; do
-  git -C mesa apply --check "$p" 2>/dev/null && git -C mesa apply "$p"
+for r in mesa virtio-drivers-windows-rs; do
+  for p in "$ROOT"/patches/$r/*.patch; do
+    [ -f "$p" ] || continue
+    if git -C $r apply --check "$p" 2>/dev/null; then git -C $r apply "$p"
+    elif git -C $r apply --reverse --check "$p" 2>/dev/null; then :  # already applied
+    else echo "ERROR: patch $p does not apply"; exit 1; fi
+  done
 done
 
 # virtio-d3d11: its dxvk submodule commit only exists in the Droid-VM fork.
