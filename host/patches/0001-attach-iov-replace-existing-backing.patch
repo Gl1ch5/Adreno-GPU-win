@@ -1,0 +1,20 @@
+diff --git a/src/virglrenderer.c b/src/virglrenderer.c
+index 0868ee8..9ecb51c 100644
+--- a/src/virglrenderer.c
++++ b/src/virglrenderer.c
+@@ -459,6 +459,15 @@ int virgl_renderer_resource_attach_iov(int res_handle, struct iovec *iov,
+       return EINVAL;
+    }
+ 
++   /* droidvm-gpu-build: the WDDM KMD can attach a resource twice (page-table
++    * update, then MAP_APERTURE_SEGMENT) and the two may reach the host out of
++    * order with their DETACH. Let the newest backing replace the old one
++    * instead of failing with EINVAL; the VMM drops its old iovecs on success. */
++   if (res->iov) {
++      virgl_info("attach_iov: res_handle=%d replacing existing backing (%d -> %d iovs)\n",
++                  res_handle, res->iov_count, num_iovs);
++      virgl_resource_detach_iov(res);
++   }
+    int ret = virgl_resource_attach_iov(res, iov, num_iovs);
+    if (ret) {
+       virgl_error("attach_iov: res_handle=%d rejected: ret=%d iov=%p count=%d "

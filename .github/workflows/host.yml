@@ -32,6 +32,7 @@ jobs:
           git clone -q --depth 1 -b wingpu https://github.com/Droid-VM/virglrenderer vr
           git clone -q --depth 1 -b 1.5.10 https://github.com/anholt/libepoxy
           git clone -q --depth 1 -b libdrm-2.4.124 https://gitlab.freedesktop.org/mesa/drm.git libdrm
+          for p in "$GITHUB_WORKSPACE"/host/patches/*.patch; do git -C vr apply "$p"; done
           echo "VR_REV=$(git -C vr rev-parse --short=12 HEAD)" >> "$GITHUB_ENV"
       - name: libepoxy (static)
         run: |

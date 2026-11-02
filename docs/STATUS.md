@@ -119,3 +119,13 @@ GPU-пула, отсюда EINVAL(22). Не проверено.
   virglrenderer drm2kgsl-фиксы для Adreno 830 (10-13) в APK не попали.
 - Гипотеза: рассинхрон гость (октябрь) ↔ хост (12 сентября). Опции: ждать новых prebuilts / issue
   разработчикам; собрать гостя из исходников ~09-12; собрать хост самим (рискованно).
+
+## 07:27–07:34: своя хостовая libvirglrenderer.so (релизы host-1/host-2)
+- Путь: /data/user/0/cn.classfun.droidvm/usr/lib/libvirglrenderer.so; из Termux только через
+  `su -c "nsenter -t 1 -m -- ..."` (изоляция данных приложений). Скрипты host/install|restore-virgl.sh.
+- host-1 падал на assert (устаревший prebuilt u_format_table.c) → host-2: таблица генерируется, NDEBUG.
+- host-2 грузится, теперь видна точная причина:
+  `attach_iov: res_handle=2 rejected: ret=22 count=26 existing_count=2523` (то же для res 3).
+  Первая привязка — KMD UPDATE_PAGE_TABLE (attach_backing_virtual, постранично 2523, без detach),
+  вторая — MAP_APERTURE_SEGMENT (detach+attach по MDL, 26 кусков); на хосте detach не успевает.
+- host-3: патч host/patches/0001 — attach_iov заменяет существующий backing вместо EINVAL.
