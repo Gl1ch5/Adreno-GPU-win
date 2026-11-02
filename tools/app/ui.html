@@ -119,6 +119,7 @@ let fixList={},dirty=false;
 let loading=false;
 async function load(){if(loading)return;loading=true;let s;try{s=await (await fetch('/api/status')).json()}finally{loading=false}
   if(!s.loaded){$('updinfo').textContent='Собираю сведения о драйвере…';bar(true,null)}else if(!busy){bar(false)}
+  if(s.error)toast(s.error);
   $('appv').textContent='v'+s.app+' (сборка '+s.appbuild+')'+(s.agent?' · агент обновлений включён':'');
   $('device').textContent=s.device||'не найдено';
   $('gpu').innerHTML=s.gpu?'<b>'+s.gpu.replace('(TM) ','')+'</b>':'—';if(s.gpu)$('title').textContent=s.gpu.replace('(TM) ','')+' · DroidVM';

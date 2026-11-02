@@ -17,6 +17,23 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Check embedded PowerShell syntax
+        shell: pwsh
+        run: |
+          python - <<'PY'
+          import re
+          src = open('tools/app/droidvm_gpu.py', encoding='utf-8').read()
+          out = []
+          for name in ('STATIC_PS', 'LIVE_PS'):
+              m = re.search(name + r' = r"""(.*?)"""', src, re.S)
+              out.append('$null = {' + m.group(1) + '}')
+          open('ps_check.ps1', 'w', encoding='utf-8').write('\n'.join(out))
+          PY
+          $e = $null
+          [System.Management.Automation.Language.Parser]::ParseFile("$PWD/ps_check.ps1", [ref]$null, [ref]$e) | Out-Null
+          if ($e) { $e | ForEach-Object { Write-Error ("PS syntax: " + $_.Message + " @ line " + $_.Extent.StartLineNumber) }; exit 1 }
+          "PowerShell syntax OK"
+
       - name: PyInstaller
         shell: pwsh
         run: |

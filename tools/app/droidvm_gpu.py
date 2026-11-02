@@ -5,7 +5,7 @@ Windows only. Runs elevated (PyInstaller --uac-admin). No third-party deps.
 import json, os, subprocess, sys, threading, time, urllib.request, webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "1.9"
+APP_VERSION = "1.10"
 REPO = "Gl1ch5/Adreno-GPU-win"
 TASK = "DroidVM GPU logs"
 TOOL_DIR = r"C:\ProgramData\DroidVM-GPU"
@@ -60,11 +60,13 @@ if (Test-Path $u) {
 }
 $os = Get-CimInstance Win32_OperatingSystem; $cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
 $env_ = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment'
+$pk = Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Services\VirtioGpu\Parameters'
+$poolbase = if ($pk.PoolBaseLow -ne $null) { '0x{0:x}' -f ([uint64]$pk.PoolBaseHigh * 4294967296 + [uint64][uint32]$pk.PoolBaseLow) } else { $null }
 [pscustomobject]@{
   driver = $drv; status = "$($p.Status)"; problem = (Get-PnpDeviceProperty -InstanceId $p.InstanceId -KeyName DEVPKEY_Device_ProblemCode).Data
   device = $p.FriendlyName; gpu = $gpu; mesa = $mesa; fl = $fl
   mode = if ($v) { "$($v.CurrentHorizontalResolution)x$($v.CurrentVerticalResolution) @ $($v.CurrentRefreshRate) Hz" } else { $null }
-  dwm = $mods; tu = (Get-ItemProperty $env_).TU_DEBUG; verbose = (Get-ItemProperty $env_).VIRTIO_WDDM_VERBOSE; $pk = Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Services\VirtioGpu\Parameters'; poolbase = if ($pk.PoolBaseLow -ne $null) { '0x{0:x}' -f ([uint64]$pk.PoolBaseHigh * 4294967296 + [uint32]$pk.PoolBaseLow) } else { $null }; cpuwait = (Get-ItemProperty $env_).TU_WIN_SUBMIT_CPU_WAIT
+  dwm = $mods; tu = (Get-ItemProperty $env_).TU_DEBUG; verbose = (Get-ItemProperty $env_).VIRTIO_WDDM_VERBOSE; poolbase = $poolbase; cpuwait = (Get-ItemProperty $env_).TU_WIN_SUBMIT_CPU_WAIT
   lastlog = if ($bf) { $bf.LastWriteTime.ToString('dd.MM HH:mm:ss') } else { $null }; upload = $up
   task = [bool]$task
   testsign = [bool](bcdedit /enum '{current}' | Select-String -Pattern 'testsigning\s+Yes')
@@ -95,7 +97,9 @@ REFRESH = threading.Event()
 def refresher():
     while True:
         try:
-            CACHE["static"] = json.loads(ps(STATIC_PS, timeout=90) or "{}"); CACHE["static_t"] = time.time()
+            out = ps(STATIC_PS, timeout=90)
+            CACHE["static"] = json.loads(out) if out.startswith("{") else {"error": "Не удалось прочитать состояние: " + out[:300]}
+            CACHE["static_t"] = time.time()
         except Exception as e:
             CACHE["static"]["error"] = str(e)
         REFRESH.wait(30); REFRESH.clear()
