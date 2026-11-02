@@ -75,8 +75,8 @@ HKR,,EventMessageFile,%REG_EXPAND_SZ%,"%%SystemRoot%%\System32\IoLogMsg.dll"
 HKR,,TypesSupported,%REG_DWORD%,7
 
 [VirtioGpu_DeviceSettings]
-; Slots: D3D9, D3D10, D3D11, D3D12
-HKR,, UserModeDriverName,          %REG_MULTI_SZ%, %13%\dx11um_virtio.dll,%13%\dx11um_virtio.dll,%13%\dx11um_virtio.dll,%13%\dx12um_virtio.dll
+; Slots: D3D9 (empty -> Windows uses D3D9On12), D3D10, D3D11, D3D12
+HKR,, UserModeDriverName,          %REG_MULTI_SZ%, <>,%13%\dx11um_virtio.dll,%13%\dx11um_virtio.dll,%13%\dx12um_virtio.dll
 HKR,, VulkanDriverName,            %REG_SZ%,       %13%\freedreno_icd.aarch64.json
 HKR,, D3D12Enable,                 %REG_DWORD%,    1
 HKR,, D3D12FeatureLevelOverride,   %REG_DWORD%,    0

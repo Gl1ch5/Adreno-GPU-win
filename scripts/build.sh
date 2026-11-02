@@ -56,7 +56,7 @@ PY
   cp "$K/target/aarch64-pc-windows-msvc/debug/virtio_gpu_wddm_rs.pdb" "$OUT/" 2>/dev/null || true
   endstep
 fi
-UAPI=$ROOT/out/arm64/include/virtio_wddm_uapi.h
+UAPI=$(dirname "$OUT")/arm64/include/virtio_wddm_uapi.h
 
 # ---------------------------------------------------------------- D3D11
 step "dx11um_virtio.dll (DXVK)"
