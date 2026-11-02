@@ -3,7 +3,7 @@ name: build
 on:
   push:
     branches: [main, master, 'claude/**']
-    paths-ignore: ['README.md', 'docs/**', 'tools/**', 'CLAUDE.md', 'AGENTS.md', 'host/**', '.github/workflows/host.yml']
+    paths-ignore: ['README.md', 'docs/**', 'tools/**', '.github/workflows/app.yml', 'CLAUDE.md', 'AGENTS.md', 'host/**', '.github/workflows/host.yml']
   workflow_dispatch:
     inputs:
       release:

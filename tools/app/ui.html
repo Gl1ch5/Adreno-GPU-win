@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DroidVM GPU</title>
+<style>
+:root{--bg:#f3f3f3;--card:#ffffffcc;--stroke:#e5e5e5;--text:#1a1a1a;--sub:#5f5f5f;--accent:#0067c0;--accent-t:#fff;--ok:#0f7b0f;--warn:#9d5d00;--err:#c42b1c;--hover:#f9f9f9}
+@media (prefers-color-scheme:dark){:root{--bg:#202020;--card:#2b2b2bcc;--stroke:#3a3a3a;--text:#fff;--sub:#c5c5c5;--accent:#4cc2ff;--accent-t:#000;--ok:#6ccb5f;--warn:#fce100;--err:#ff99a4;--hover:#323232}}
+*{box-sizing:border-box}body{margin:0;font:14px "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;color:var(--text);
+background:radial-gradient(1200px 600px at 10% -10%,#0067c022,transparent),radial-gradient(900px 500px at 110% 10%,#8a2be21a,transparent),var(--bg);min-height:100vh}
+header{display:flex;align-items:center;gap:14px;padding:22px 28px 6px}
+header h1{font:600 22px "Segoe UI Variable Display","Segoe UI",sans-serif;margin:0}
+header .sub{color:var(--sub);font-size:12px}
+main{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;padding:16px 28px 28px}
+.card{background:var(--card);backdrop-filter:blur(30px);border:1px solid var(--stroke);border-radius:8px;padding:16px 18px;box-shadow:0 2px 4px #0000000a}
+.card h2{display:flex;align-items:center;gap:10px;font:600 15px "Segoe UI Variable Display","Segoe UI",sans-serif;margin:0 0 12px}
+.row{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--stroke)}.row:last-child{border:0}
+.row span:first-child{color:var(--sub)}.row span:last-child{text-align:right;font-variant-numeric:tabular-nums;word-break:break-word}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600}
+.pill.ok{background:#0f7b0f22;color:var(--ok)}.pill.warn{background:#9d5d0022;color:var(--warn)}.pill.err{background:#c42b1c22;color:var(--err)}
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+button{font:inherit;display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:5px;border:1px solid var(--stroke);background:var(--card);color:var(--text);cursor:pointer}
+button:hover{background:var(--hover)}button.primary{background:var(--accent);color:var(--accent-t);border-color:transparent}button.primary:hover{filter:brightness(1.08)}
+button:disabled{opacity:.5;cursor:default}
+label.tg{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--stroke);cursor:pointer}
+label.tg:last-of-type{border:0}.sw{position:relative;width:40px;height:20px;flex:none}.sw input{display:none}
+.sw i{position:absolute;inset:0;border-radius:10px;border:1px solid var(--sub);transition:.15s}
+.sw i:after{content:"";position:absolute;width:12px;height:12px;border-radius:50%;background:var(--sub);top:3px;left:4px;transition:.15s}
+.sw input:checked+i{background:var(--accent);border-color:var(--accent)}.sw input:checked+i:after{left:22px;background:var(--accent-t)}
+#toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(80px);background:var(--card);backdrop-filter:blur(30px);border:1px solid var(--stroke);border-radius:8px;padding:10px 16px;box-shadow:0 8px 24px #0003;transition:.25s;max-width:90vw}
+#toast.on{transform:translateX(-50%)}
+svg{flex:none}.muted{color:var(--sub);font-size:12px;margin-top:8px}
+</style></head><body>
+<svg width="0" height="0" style="position:absolute"><defs>
+<linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4cc2ff"/><stop offset="1" stop-color="#0067c0"/></linearGradient>
+<linearGradient id="g2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b48cff"/><stop offset="1" stop-color="#6b3fd4"/></linearGradient>
+<linearGradient id="g3" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7ee07e"/><stop offset="1" stop-color="#0f7b0f"/></linearGradient>
+<linearGradient id="g4" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd36b"/><stop offset="1" stop-color="#e07a00"/></linearGradient>
+<symbol id="i-gpu" viewBox="0 0 32 32"><rect x="3" y="8" width="22" height="16" rx="3" fill="url(#g1)"/><rect x="25" y="12" width="4" height="8" rx="1.5" fill="#0067c0"/><circle cx="14" cy="16" r="4.5" fill="#fff" opacity=".9"/><circle cx="14" cy="16" r="2" fill="#0067c0"/><path d="M7 24v3M11 24v3M15 24v3M19 24v3" stroke="#0067c0" stroke-width="2" stroke-linecap="round"/></symbol>
+<symbol id="i-chip" viewBox="0 0 32 32"><rect x="8" y="8" width="16" height="16" rx="3" fill="url(#g2)"/><rect x="12" y="12" width="8" height="8" rx="1.5" fill="#fff" opacity=".85"/><path d="M12 4v4M16 4v4M20 4v4M12 24v4M16 24v4M20 24v4M4 12h4M4 16h4M4 20h4M24 12h4M24 16h4M24 20h4" stroke="#6b3fd4" stroke-width="2" stroke-linecap="round"/></symbol>
+<symbol id="i-log" viewBox="0 0 32 32"><path d="M8 3h11l7 7v17a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" fill="url(#g3)"/><path d="M19 3v6a1 1 0 0 0 1 1h6" fill="#ffffff66"/><path d="M10 15h12M10 19h12M10 23h8" stroke="#fff" stroke-width="2" stroke-linecap="round"/></symbol>
+<symbol id="i-wrench" viewBox="0 0 32 32"><path d="M21 4a7 7 0 0 0-6.6 9.3L4.7 23a2.5 2.5 0 0 0 3.5 3.5l9.7-9.7A7 7 0 0 0 27.6 9l-4 4-3.4-.9-.9-3.4 4-4A7 7 0 0 0 21 4z" fill="url(#g4)"/></symbol>
+<symbol id="i-up" viewBox="0 0 20 20"><path d="M10 3v10M5 8l5-5 5 5M4 16h12" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-send" viewBox="0 0 20 20"><path d="M3 10l14-6-5 14-2.5-5.5L3 10z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+<symbol id="i-folder" viewBox="0 0 20 20"><path d="M2.5 5.5a1.5 1.5 0 0 1 1.5-1.5h3.5l2 2H16a1.5 1.5 0 0 1 1.5 1.5v7A1.5 1.5 0 0 1 16 16H4a1.5 1.5 0 0 1-1.5-1.5z" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+<symbol id="i-sync" viewBox="0 0 20 20"><path d="M16 7a6.5 6.5 0 0 0-11.7-1M4 13a6.5 6.5 0 0 0 11.7 1M4 2v4h4M16 18v-4h-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-power" viewBox="0 0 20 20"><path d="M10 2.5v7M6 5a6.5 6.5 0 1 0 8 0" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+<symbol id="i-save" viewBox="0 0 20 20"><path d="M4 3h9l3 3v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM6 3v5h7V3M6 17v-5h8v5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+</defs></svg>
+<header><svg width="40" height="40"><use href="#i-gpu"/></svg><div><h1>DroidVM GPU</h1><div class="sub">Неофициальная сборка · Adreno → Windows on ARM · <span id="appv"></span></div></div></header>
+<main>
+<section class="card"><h2><svg width="22" height="22"><use href="#i-chip"/></svg>Драйвер</h2>
+<div class="row"><span>Устройство</span><span id="device">…</span></div>
+<div class="row"><span>Статус</span><span id="status">…</span></div>
+<div class="row"><span>Версия</span><span id="driver">…</span></div>
+<div class="row"><span>Режим экрана</span><span id="mode">…</span></div>
+<div class="row"><span>Ускорение рабочего стола</span><span id="accel">…</span></div>
+<div class="row"><span>Тестовая подпись</span><span id="testsign">…</span></div>
+<div class="btns"><button class="primary" onclick="checkUpdate()"><svg width="16" height="16"><use href="#i-up"/></svg>Проверить обновление</button>
+<button id="upd" onclick="doUpdate()" disabled><svg width="16" height="16"><use href="#i-up"/></svg>Установить</button></div>
+<div class="muted" id="updinfo">Перед установкой сделайте клон диска ВМ.</div></section>
+<section class="card"><h2><svg width="22" height="22"><use href="#i-log"/></svg>Логи</h2>
+<div class="row"><span>Автосбор при загрузке</span><span id="task">…</span></div>
+<div class="row"><span>Последний лог</span><span id="lastlog">…</span></div>
+<div class="row"><span>Отправка на сервер</span><span id="upload">…</span></div>
+<div class="btns"><button class="primary" onclick="act('sendlogs')"><svg width="16" height="16"><use href="#i-send"/></svg>Отправить логи сейчас</button>
+<button onclick="act('openlogs')"><svg width="16" height="16"><use href="#i-folder"/></svg>Открыть папку</button></div></section>
+<section class="card"><h2><svg width="22" height="22"><use href="#i-wrench"/></svg>Исправления Turnip</h2>
+<div id="fixes"></div>
+<label class="tg"><span>Ждать GPU перед отправкой (CPU wait)</span><span class="sw"><input type="checkbox" id="cpuwait"><i></i></span></label>
+<div class="btns"><button class="primary" onclick="saveFixes()"><svg width="16" height="16"><use href="#i-save"/></svg>Сохранить</button>
+<button onclick="act('reboot')"><svg width="16" height="16"><use href="#i-power"/></svg>Перезагрузить</button></div>
+<div class="muted">Только отключают оптимизации (медленнее, но безопасно). Действуют после перезагрузки.</div></section>
+</main>
+<div id="toast"></div>
+<script>
+const $=id=>document.getElementById(id);
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('on'),4000)}
+function pill(cls,txt){return `<span class="pill ${cls}">${txt}</span>`}
+async function post(action,arg){const r=await fetch('/api/action',{method:'POST',body:JSON.stringify({action,arg})});return r.json()}
+async function act(a,arg){const r=await post(a,arg);toast(r.msg||'Готово');setTimeout(load,1500);return r}
+let fixList={};
+async function load(){
+  const s=await (await fetch('/api/status')).json();
+  $('appv').textContent='v'+s.app;
+  $('device').textContent=s.device||'не найдено';
+  $('status').innerHTML=s.status==='OK'?pill('ok','Работает'):s.status?pill('err',s.status+' (код '+(s.problem??'?')+')'):pill('warn','Выключено');
+  $('driver').textContent=s.driver?s.driver+'  (build-'+s.driver.split('.').pop()+')':'—';
+  $('mode').textContent=s.mode||'—';
+  const d=s.dwm||[];const ok=d.some(m=>/dx11um/i.test(m));const warp=d.some(m=>/d3d10warp/i.test(m));
+  $('accel').innerHTML=ok?pill('ok','GPU (DXVK + Turnip)'):warp?pill('err','Программный (WARP)'):pill('warn','Нет данных');
+  $('testsign').innerHTML=s.testsign?pill('ok','Включена'):pill('err','Выключена');
+  $('task').innerHTML=s.task?pill('ok','Установлен'):pill('warn','Нет');
+  $('lastlog').textContent=s.lastlog||'—';
+  $('upload').innerHTML=!s.upload?'—':/ok/.test(s.upload)?pill('ok','Отправлен'):pill('err','Ошибка');
+  fixList=s.fixes||{};const on=(s.tu||'').split(',');
+  $('fixes').innerHTML=Object.entries(fixList).map(([k,v])=>`<label class="tg"><span>${v} <span class="muted">(${k})</span></span><span class="sw"><input type="checkbox" data-fix="${k}" ${on.includes(k)?'checked':''}><i></i></span></label>`).join('');
+  $('cpuwait').checked=s.cpuwait==='1';
+}
+async function saveFixes(){const f=[...document.querySelectorAll('[data-fix]')].filter(x=>x.checked).map(x=>x.dataset.fix);
+  await post('cpuwait',$('cpuwait').checked);await act('fix',f)}
+async function checkUpdate(){$('updinfo').textContent='Проверяю…';try{const r=await post('checkupdate');
+  const cur=parseInt((($('driver').textContent.match(/build-(\d+)/)||[])[1])||0);
+  $('updinfo').textContent=r.n>cur?`Доступна ${r.tag} от ${r.date} (у вас build-${cur}). Сделайте клон диска ВМ.`:`Установлена последняя сборка (${r.tag}).`;
+  $('upd').disabled=!(r.n>cur)}catch(e){$('updinfo').textContent='Не удалось проверить: '+e}}
+async function doUpdate(){if(!confirm('Сделан клон диска ВМ? Установить новую сборку?'))return;await act('update')}
+load();setInterval(()=>fetch('/api/ping'),20000);
+</script></body></html>
