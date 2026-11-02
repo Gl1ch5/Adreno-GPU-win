@@ -21,7 +21,11 @@ INC="-I$VR/prebuilt-intermediates -I$VR/prebuilt-intermediates/venus -I$VR/src -
  -I$VR/src/mesa/util -I$VR/src/venus -I$HERE/shim -I$DRM -I$DRM/include/drm \
  -I$EPOXY/../include -I$EPOXY/include"
 CFLAGS="-std=gnu17 -O2 -fPIC -fvisibility=hidden -DHAVE_CONFIG_H -include $VR/prebuilt-intermediates/config.h \
- -D__USE_GNU -DHAVE_MEMFD_CREATE=1 -Wno-unused-parameter -Wno-error -w"
+ -DNDEBUG -D__USE_GNU -DHAVE_MEMFD_CREATE=1 -Wno-unused-parameter -Wno-error -w"
+# The checked-in prebuilt-intermediates/src/u_format_table.c is stale (misses
+# formats from u_format.csv) -> util_format_description() returns NULL. Regenerate.
+python3 "$VR/src/gallium/auxiliary/util/u_format_table.py" "$VR/src/gallium/auxiliary/util/u_format.csv" > "$OUT/u_format_table.c"
+SRCS=$(echo "$SRCS" | sed "s#prebuilt-intermediates/src/u_format_table.c#$OUT/u_format_table.c#")
 objs=()
 for s in $SRCS; do
   o="$OUT/obj/$(echo "$s" | tr / _).o"
