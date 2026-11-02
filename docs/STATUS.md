@@ -183,3 +183,9 @@ GPU-пула, отсюда EINVAL(22). Не проверено.
 - Эксперимент 2: `TU_DEBUG=...,flushall,syncdraw` + `TU_WIN_SUBMIT_CPU_WAIT=1`.
   Если не поможет — подозрение на когерентность guest-alloc BO (`MSM_BO_CACHED_COHERENT`,
   tu_knl_drm_virtio.cc ~1859) / кэшируемое отображение в KMD.
+- 12:38 (fixoff, TU_DEBUG=startup): sync-эксперимент не помог. Чтение umd.log исправлено.
+  В umd.log: Turnip `Found device: Adreno (TM) 829 (turnip Mesa driver 26.2.99)`;
+  ошибки `DxvkSubmissionQueue: VK_ERROR_DEVICE_LOST`, `Exception on CS thread`,
+  `DxvkCommandPool: Failed to begin command buffer`, dx12um `vkd3d_create_device failed`,
+  `Triton: tritonResourceMap: 0x887b0001`, `pfnDeallocateCb failed: 0x80070057`.
+  Режим 1920x1080@60. Следующий шаг: хостовой лог KGSL (fault/ERROR) в момент артефактов.
