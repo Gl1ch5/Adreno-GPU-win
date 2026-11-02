@@ -54,6 +54,11 @@ PY
   (cd "$K" && cargo build --package virtio-gpu-wddm-rs --target aarch64-pc-windows-msvc)
   cp "$K/target/aarch64-pc-windows-msvc/debug/virtio_gpu_wddm_rs.dll" "$OUT/virtio_wddm_rs.sys"
   cp "$K/target/aarch64-pc-windows-msvc/debug/virtio_gpu_wddm_rs.pdb" "$OUT/" 2>/dev/null || true
+  # Diagnostic variant: records bring-up checkpoints under
+  # HKLM\SYSTEM\CurrentControlSet\Services\VirtioGpu\Parameters\Bringup
+  (cd "$K" && cargo build --package virtio-gpu-wddm-rs --target aarch64-pc-windows-msvc \
+     --features bringup-diagnostics --target-dir target-diag)
+  cp "$K/target-diag/aarch64-pc-windows-msvc/debug/virtio_gpu_wddm_rs.dll" "$OUT/virtio_wddm_rs_diag.sys"
   endstep
 fi
 UAPI=$(dirname "$OUT")/arm64/include/virtio_wddm_uapi.h

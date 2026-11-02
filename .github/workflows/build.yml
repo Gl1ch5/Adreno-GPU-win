@@ -120,6 +120,7 @@ jobs:
           prerelease: true
           files: |
             dist/DroidVM-GPU-Setup.exe
+            dist/DroidVM-GPU-Setup-diag.exe
             dist/DroidVM-GPU-Uninstall.exe
             dist/DroidVM-GPU-driver.zip
             dist/SHA256SUMS.txt

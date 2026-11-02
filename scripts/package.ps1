@@ -73,6 +73,26 @@ if (-not $iscc) { choco install innosetup -y --no-progress | Out-Null; $iscc = "
 Push-Location $stage
 foreach ($iss in 'setup.iss', 'uninstall.iss') { & $iscc /Q "/DAppVersion=$version" $iss; if ($LASTEXITCODE) { throw "ISCC $iss failed" } }
 Pop-Location
+# ---- diagnostic variant: same package, KMD built with bringup-diagnostics
+$diagSys = Join-Path $a64 'virtio_wddm_rs_diag.sys'
+if (Test-Path $diagSys) {
+    $drvDiag = Join-Path $stage 'driver-diag'
+    Copy-Item $drv $drvDiag -Recurse
+    Remove-Item (Join-Path $drvDiag 'virtio_wddm_rs.cat')
+    Copy-Item $diagSys (Join-Path $drvDiag 'virtio_wddm_rs.sys') -Force
+    Sign (Join-Path $drvDiag 'virtio_wddm_rs.sys')
+    & $inf2cat.FullName /driver:$drvDiag /os:10_GE_ARM64 /uselocaltime
+    if ($LASTEXITCODE) { throw 'Inf2Cat (diag) failed' }
+    Sign (Join-Path $drvDiag 'virtio_wddm_rs.cat')
+    Push-Location $stage
+    Rename-Item driver driver-normal; Rename-Item driver-diag driver
+    & $iscc /Q "/DAppVersion=$version-diag" "/DOutName=DroidVM-GPU-Setup-diag" setup.iss
+    if ($LASTEXITCODE) { throw 'ISCC diag failed' }
+    Rename-Item driver driver-diag; Rename-Item driver-normal driver
+    Pop-Location
+    Sign (Join-Path $stage 'DroidVM-GPU-Setup-diag.exe')
+    Copy-Item (Join-Path $stage 'DroidVM-GPU-Setup-diag.exe') $dist
+}
 Sign (Join-Path $stage 'DroidVM-GPU-Setup.exe'), (Join-Path $stage 'DroidVM-GPU-Uninstall.exe')
 
 Copy-Item (Join-Path $stage 'DroidVM-GPU-Setup.exe'), (Join-Path $stage 'DroidVM-GPU-Uninstall.exe') $dist
@@ -89,6 +109,7 @@ $rev = Get-ChildItem bin -Recurse -Filter REVISIONS.md | Select-Object -First 1
 > (``$($cert.Thumbprint)``), установщик включает TESTSIGNING.
 
 - ``DroidVM-GPU-Setup.exe`` — установка (сертификат + драйвер, перезагрузка)
+- ``DroidVM-GPU-Setup-diag.exe`` — то же, но драйвер ядра пишет шаги запуска в реестр (HKLM\\SYSTEM\\CurrentControlSet\\Services\\VirtioGpu\\Parameters\\Bringup)
 - ``DroidVM-GPU-Uninstall.exe`` — откат
 - ``DroidVM-GPU-driver.zip`` — тот же пакет для ручной установки (pnputil)
 

@@ -1,4 +1,7 @@
 ; DroidVM GPU driver - unofficial build installer (Inno Setup 6)
+#ifndef OutName
+  #define OutName "DroidVM-GPU-Setup"
+#endif
 #ifndef AppVersion
   #define AppVersion "0.0.0"
 #endif
@@ -13,7 +16,7 @@ DisableProgramGroupPage=yes
 ArchitecturesAllowed=arm64
 ArchitecturesInstallIn64BitMode=arm64
 PrivilegesRequired=admin
-OutputBaseFilename=DroidVM-GPU-Setup
+OutputBaseFilename={#OutName}
 OutputDir=.
 Compression=lzma2
 SolidCompression=yes
