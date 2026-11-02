@@ -132,3 +132,13 @@ GPU-пула, отсюда EINVAL(22). Не проверено.
 - 07:40 host-3: `attach_iov: res_handle=2/3 replacing existing backing (2523 -> 18/375 iovs)` — ошибок
   ResourceAttachBacking больше нет. Windows: Status=OK, present 10/10 (host path, NotGuestBlob),
   submit/fence 10/10. Ждём, что видно на экране.
+
+## 2026-11-02 07:55 — чёрный экран = падение dwm.exe
+- host-3: attach EINVAL нет, хост пишет `FLUSH-ROUTE: transfer_read: readback is black` (ещё на этапе прошивки).
+- Windows: устройство Status=OK, но `dwm.exe` падает в цикле: исключение `0x889800b0`,
+  `dwmcore.dll+0x27bde4`. dxdiag: Feature Levels пусто, WDDM 2.0.
+- Импорты/экспорты `dx11um_virtio.dll` и `dx12um_virtio.dll` в порядке.
+- Ошибка пакета: `vulkan_freedreno.dll` импортирует `libwinpthread-1.dll` и `libz-1.dll`,
+  в пакете их нет (Vulkan не загрузится). Исправить: статическая линковка.
+- Сборщик логов (b9683f0): лог DXVK (`DXVK_LOG_PATH`) и минидамп dwm (WER LocalDumps)
+  отправляются на сервер (`*.dmp.b64`).
