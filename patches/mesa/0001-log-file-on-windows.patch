@@ -1,3 +1,16 @@
+diff --git a/src/freedreno/vulkan/tu_knl_drm_virtio.cc b/src/freedreno/vulkan/tu_knl_drm_virtio.cc
+index e1b7317..2f98c89 100644
+--- a/src/freedreno/vulkan/tu_knl_drm_virtio.cc
++++ b/src/freedreno/vulkan/tu_knl_drm_virtio.cc
+@@ -2794,7 +2794,7 @@ tu_knl_drm_virtio_load(struct tu_instance *instance,
+    vdrm = vdrm_device_connect(fd, VIRTGPU_DRM_CONTEXT_MSM);
+    if (!vdrm) {
+ #if defined(_WIN32)
+-      /* vdrm_wddm 还没实现（块 2 起），Windows 上 probe 必然到此为止。 */
++      mesa_loge("tu: vdrm_device_connect(MSM) failed on WDDM");
+       return VK_ERROR_INCOMPATIBLE_DRIVER;
+ #else
+       if (TU_DEBUG(STARTUP)) {
 diff --git a/src/util/log.c b/src/util/log.c
 index b594a8f..1a89a2a 100644
 --- a/src/util/log.c
