@@ -14,6 +14,11 @@ for r in virtio-drivers-windows-rs virtio-d3d11 virtio-d3d12 vkd3d-proton mesa; 
   clone "https://github.com/Droid-VM/$r" "$r" "$DROIDVM_BRANCH"
 done
 
+# mesa: local patches (idempotent: skip if already applied)
+for p in "$ROOT"/patches/mesa/*.patch; do
+  git -C mesa apply --check "$p" 2>/dev/null && git -C mesa apply "$p"
+done
+
 # virtio-d3d11: its dxvk submodule commit only exists in the Droid-VM fork.
 if [ ! -f virtio-d3d11/thirdparty/dxvk/meson.build ]; then
   rm -rf virtio-d3d11/thirdparty/dxvk
