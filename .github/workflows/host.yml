@@ -1,0 +1,62 @@
+name: host-virglrenderer
+
+# Experimental: rebuild DroidVM's host libvirglrenderer.so (Droid-VM/virglrenderer@wingpu,
+# drm2kgsl + venus + vrend) for Android arm64 with the NDK, to replace
+# /data/data/cn.classfun.droidvm/usr/lib/libvirglrenderer.so on a rooted phone.
+on:
+  push:
+    branches: ['claude/**', main]
+    paths: ['host/**', '.github/workflows/host.yml', 'cross/android-arm64.ini']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tools
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q ninja-build python3-pip
+          pip3 install --break-system-packages -q meson
+      - name: NDK r27c
+        run: |
+          curl -sSLf --retry 5 -o ndk.zip https://dl.google.com/android/repository/android-ndk-r27c-linux.zip
+          unzip -q ndk.zip && rm ndk.zip
+          echo "$PWD/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin" >> "$GITHUB_PATH"
+      - name: Sources
+        run: |
+          mkdir -p hsrc && cd hsrc
+          git clone -q --depth 1 -b wingpu https://github.com/Droid-VM/virglrenderer vr
+          git clone -q --depth 1 -b 1.5.10 https://github.com/anholt/libepoxy
+          git clone -q --depth 1 -b libdrm-2.4.124 https://gitlab.freedesktop.org/mesa/drm.git libdrm
+          echo "VR_REV=$(git -C vr rev-parse --short=12 HEAD)" >> "$GITHUB_ENV"
+      - name: libepoxy (static)
+        run: |
+          cd hsrc/libepoxy
+          meson setup build --cross-file "$GITHUB_WORKSPACE/cross/android-arm64.ini" --default-library=static \
+            -Dglx=no -Dx11=false -Degl=yes -Dtests=false -Ddocs=false --buildtype=release -Db_staticpic=true
+          ninja -C build
+      - name: libvirglrenderer.so
+        run: host/build-virglrenderer.sh hsrc/vr hsrc/libepoxy/build hsrc/libdrm out
+      - name: Package
+        run: |
+          cp host/install-virgl.sh host/restore-virgl.sh out/
+          cd out && sha256sum libvirglrenderer.so > SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: host-${{ github.run_number }}
+          name: DroidVM host libvirglrenderer (experimental) ${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          prerelease: true
+          body: |
+            Экспериментальная хостовая библиотека для DroidVM (замена через root).
+            Собрана из Droid-VM/virglrenderer@wingpu ${{ env.VR_REV }} (NDK r27c, android31, arm64).
+            Установка/откат: см. install-virgl.sh / restore-virgl.sh (Termux + su).
+          files: |
+            out/libvirglrenderer.so
+            out/install-virgl.sh
+            out/restore-virgl.sh
+            out/SHA256SUMS.txt
