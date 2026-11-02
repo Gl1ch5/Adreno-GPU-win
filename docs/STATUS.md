@@ -142,3 +142,16 @@ GPU-пула, отсюда EINVAL(22). Не проверено.
   в пакете их нет (Vulkan не загрузится). Исправить: статическая линковка.
 - Сборщик логов (b9683f0): лог DXVK (`DXVK_LOG_PATH`) и минидамп dwm (WER LocalDumps)
   отправляются на сервер (`*.dmp.b64`).
+
+## 2026-11-02 11:05 — корень: crosvm без DROIDVM_BOOT_POOL
+- build-29: Turnip грузится (статическая линковка), но `enumAdapters` = 0.
+- build-33 + VDRM_WDDM_DEBUG: `vdrm-wddm: connect failed at shared ring`,
+  `Escape VESCMAPB: status=0xc0000182` (DEVICE_CONFIGURATION_ERROR).
+- Bringup: `BlobMapInfo=0x80000001` (MAP_INFO_POOL), `BlobMapOffsetLow=0x200000`,
+  записей `BootPool*` нет → фича virtio-gpu bit 7 `DROIDVM_BOOT_POOL` не согласована.
+- KMD (wingpu, adapter.rs:1826) без boot_pool отвечает DEVICE_CONFIGURATION_ERROR.
+- crosvm в DroidVM dev 3348830 (prebuilts c4998e1) собран из ветки `droidvm`:
+  там есть MAP_INFO_POOL, но нет `boot_pool.rs`/DVMPOOL1. Он есть в crosvm `wingpu`
+  (3a09957, 2026-10-14). Нужен crosvm из ветки wingpu на хосте.
+- Важно: в DroidVM должен стоять Graphics API = Native Context (в режиме Vulkan
+  Windows видит только capset venus).
