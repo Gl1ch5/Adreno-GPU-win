@@ -178,3 +178,8 @@ GPU-пула, отсюда EINVAL(22). Не проверено.
 - Диспетчер задач показывает GPU «VirtIO GPU 3D controller», нагрузка 3D, прозрачность есть.
 - Артефакты: цветной мусор на тенях/blur окон и белые прямоугольники вместо части текста.
 - Эксперимент 1: `TU_DEBUG=startup,noubwc` (отключить UBWC) через сборщик логов.
+- 12:19: `TU_DEBUG=0x29` (startup+noubwc+sysmem) применился — артефакты остались,
+  значит не UBWC и не GMEM. Испорчено то, что заливается с CPU (глифы, тени).
+- Эксперимент 2: `TU_DEBUG=...,flushall,syncdraw` + `TU_WIN_SUBMIT_CPU_WAIT=1`.
+  Если не поможет — подозрение на когерентность guest-alloc BO (`MSM_BO_CACHED_COHERENT`,
+  tu_knl_drm_virtio.cc ~1859) / кэшируемое отображение в KMD.
