@@ -92,3 +92,15 @@ GPU-пула, отсюда EINVAL(22). Не проверено.
   (ResId 2/3) → вероятно, снова чёрный экран. Логи предыдущей попытки не пришли
   (ВМ выключена раньше 90 с). Ждём лог DroidVM (ERROR) и проверку RDP на 192.168.148.128.
 - Релиз build-12: INF создаёт Parameters\Bringup, в релизе есть DroidVM-GPU-Logs.cmd (без токена).
+
+## Разбор EINVAL(22) по исходникам хоста (Droid-VM/crosvm@droidvm 849e05f, virglrenderer@wingpu 6e0d606)
+- crosvm `rutabaga_gfx/src/rutabaga_core.rs:768-785` (classic_component): при default_component=Gfxstream
+  классические 3D-ресурсы «создаются, но readback/attach падают с EINVAL»; уходят в Rutabaga2D,
+  только если тот есть среди компонентов. default=Gfxstream, если включён любой gfxstream-capset.
+- virglrenderer `src/virglrenderer.c:447-471`: EINVAL в virgl-пути всегда печатает `attach_iov: ...`;
+  в логах пользователя этих строк нет → вероятно, ошибка из gfxstream (гипотеза).
+- `vulkan.adreno.so` грузит не drm2kgsl (только Venus/vkr или gfxstream) → признак, что включён не чистый DRM.
+- KMD: тип primary выбирает UMD (ALLOCATE_3D, adapter.rs:2608); ветка ALLOCATE_BLOB (2551) есть.
+  Единственный registry-параметр KMD — PresentLocalCopy, на attach не влияет.
+  GUEST-blob требует CREATE_GUEST_HANDLE (хост даёт только при udmabuf).
+- Следующий шаг: варианты Renderer в DroidVM; в логе хоста искать `capset|component|gfxstream|attach_iov`.
