@@ -162,3 +162,13 @@ GPU-пула, отсюда EINVAL(22). Не проверено.
 - Новая ошибка: `tu_device.cc:1778: device (chip_id = 44030A00, gpu_id = 6840) is unsupported`.
   Хост нормализует 0x44030a20 → 0x44030a00, а в freedreno_devices.py есть только KGSL-id.
   Патч mesa 0002 добавляет `0x44030a00` (как у a840/FD750 «virtio guest, patch level 0»).
+
+## 2026-11-02 11:51 — build-35: УСКОРЕНИЕ РАБОТАЕТ (рабочий стол на GPU)
+- Подтверждено логом с ВМ (Native Context, DRM to KGSL, Pseudo Unprotected, 3 GiB):
+  dwm.exe и explorer.exe загрузили `dx11um_virtio.dll`, `droidvm_vulkan.dll`,
+  `vulkan_freedreno.dll`; Turnip `Found compatible device 'virtio-gpu (WDDM)'`;
+  DXVK `Using feature level D3D_FEATURE_LEVEL_11_1`; dxdiag Feature Levels 11_1..9_1;
+  падений dwm после загрузки нет. Пользователь видит рабочий стол.
+- Проблемы: касание попадает не туда, изображение обрезано (вероятно, режим Windows
+  не совпадает с поверхностью DroidVM; в логе хоста `1280x800 -> 1280x720`).
+  Сборщик теперь пишет разрешение экрана и HID-устройства.

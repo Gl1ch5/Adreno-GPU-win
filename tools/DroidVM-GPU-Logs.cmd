@@ -47,6 +47,12 @@ $L.Add("--- System events (display/dxgkrnl, last 2h) ---")
 Get-WinEvent -FilterHashtable @{LogName='System'; StartTime=(Get-Date).AddHours(-2)} -ErrorAction SilentlyContinue |
   Where-Object { $_.ProviderName -match 'Display|dxgkrnl|VirtioGpu|Kernel-PnP' -or $_.Message -match 'VirtIO GPU' } |
   Select-Object -First 40 | ForEach-Object { $L.Add("$($_.TimeCreated) [$($_.ProviderName) $($_.Id)] $($_.Message -replace '\s+',' ')") }
+$L.Add("--- Display mode ---")
+Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue | ForEach-Object { $L.Add("$($_.Name): $($_.CurrentHorizontalResolution)x$($_.CurrentVerticalResolution) @ $($_.CurrentRefreshRate) Hz") }
+Get-CimInstance -Namespace root\wmi WmiMonitorBasicDisplayParams -ErrorAction SilentlyContinue | ForEach-Object { $L.Add("monitor: $($_.InstanceName)") }
+try { Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Screen]::AllScreens | ForEach-Object { $L.Add("screen: $($_.DeviceName) $($_.Bounds) primary=$($_.Primary)") } } catch {}
+$L.Add("--- Touch/pointer devices ---")
+Get-PnpDevice -Class HIDClass,Mouse -PresentOnly -ErrorAction SilentlyContinue | ForEach-Object { $L.Add("$($_.FriendlyName) | $($_.Status) | $($_.InstanceId)") }
 $L.Add("--- Processes using GPU driver DLLs ---")
 foreach ($pn in 'dwm','explorer') {
   Get-Process $pn -ErrorAction SilentlyContinue | ForEach-Object {
