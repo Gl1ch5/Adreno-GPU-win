@@ -283,3 +283,9 @@ allocations) в triton UMD (`tritonResource.c` ~548 — написан под Me
 - Главный подозреваемый теперь — гипотеза 3 (кэш CPU / coherency при Map staging) и путь
   CopySubresourceRegion staging→texture (pitch staging-буфера DXVK vs то, что пишет GDI/dwm).
 - Ещё: `pfnDeallocateCb failed: 0x80070057` — возможен двойной free; проверить.
+
+## 2026-11-03 — build-42 (uncached CPU-visible 3D) — артефакты остались
+- Гипотеза кэша CPU для 3D-аллокаций не подтвердилась (Alloc3d всего 2 за загрузку).
+- В логе разово: `wddm submit failed status=0xc00002b6` + `VK_ERROR_DEVICE_LOST`.
+- Сборщик: ручная отправка (-Quick) теперь шлёт скриншот `*-shot_*.png.b64` (с перезагрузки).
+- Пауза. Текст issue для разработчиков Droid-VM — `docs/ISSUE-droidvm.md` (отправляет пользователь).
